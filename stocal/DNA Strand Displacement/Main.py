@@ -15,19 +15,27 @@ feed = Event([], ['A'], 0.0, 1.0)
 
 process = Process(transitions=[r1, r2], rules=[Dilution()])
 
+def regex_match(str, category):
+    if category == "lower_th":
+        return re.findall('{[^<>\[\]]*?\s(\w)\^\s+?[^<>\[\]]*?}', str)
+    elif category == "lower_th_c":
+        return re.findall('{[^<>\[\]]*?\s(\w)\^\*+?[^<>\[\]]*?}', str)
+    elif category == "upper_th":
+        return re.findall('<[^{}\[\]]*?(\w?)\^\s+?[^{}\[\]]*?>', str)
+    elif category == "upper_th_c":
+        return re.findall('<[^{}\]\[]*?\s+?(\w)\^\*+?[^{}\[\]]*?>', str)
+    else:
+        print("Erroneous input into strand_regex method")
+
 def simulate_strand(str):
     separate = str.split("|")
     if (len(separate)>1):
         for i in range(len(separate)):
             print(i)
-            lower_toeh = re.findall('{[^<>\[\]]*?\s(\w)\^\s+?[^<>\[\]]*?}', separate[i])
-            print(lower_toeh)
-            lower_toeh_c = re.findall('{[^<>\[\]]*?\s(\w)\^\*+?[^<>\[\]]*?}', separate[i])
-            print(lower_toeh_c)
-            upper_toeh = re.findall('<[^{}\[\]]*?(\w?)\^\s+?[^{}\[\]]*?>', separate[i])
-            print(upper_toeh)
-            upper_toeh_c = re.findall('<[^{}\]\[\]]*?\s+?(\w)\^\*+?[^{}\[\]]*?>', separate[i])
-            print(upper_toeh_c)
+            lower_toeh = regex_match(separate[i],"lower_th")
+            lower_toeh_c = regex_match(separate[i],"lower_th_c")
+            upper_toeh = regex_match(separate[i],"upper_th")
+            upper_toeh_c = regex_match(separate[i],"upper_th_c")
 
 
 
@@ -51,6 +59,8 @@ def simulate_strand(str):
 
 str = "{L' A^* R'}{L' B^* R'} {L' C^ R'} | <L D^ R> | <L E^* R> "
 simulate_strand(str)
+
+print(regex_match("str", "toehold"))
 
 #print(s1)
 #trajectory = process.sample({'A': 100}, steps=1000)
