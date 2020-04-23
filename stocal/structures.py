@@ -156,3 +156,10 @@ class multiset(dict):
                 else:
                     del result[item]
         return result
+
+class strand():
+    def __init__(self, upper_toeh, lower_toeh, upper_toeh_c, lower_toeh_c):
+        self.upper_toeh = upper_toeh
+        self.lower_toeh = lower_toeh
+        self.upper_toeh_c = upper_toeh_c
+        self.lower_toeh_c = lower_toeh_c

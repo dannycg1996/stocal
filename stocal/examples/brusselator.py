@@ -13,6 +13,10 @@ import stocal
 a = 2.
 b = 10.
 
+# Two reactions: Two molecules of A forming a dimer A2 and reverse
+#r1 = MassAction({'A': 2}, {'A2': 1}, 1.0)
+#r2 = MassAction({'A2': 1}, {'A': 2}, 10.0)  # Last value is the stochastic rate at which the reaction occurs
+
 process = stocal.Process([
     stocal.MassAction({}, {"x": 1}, a),
     stocal.MassAction({"x": 2, "y": 1}, {"x": 3}, 1.),

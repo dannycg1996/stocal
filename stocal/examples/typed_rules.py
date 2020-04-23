@@ -12,7 +12,7 @@ type system.
 """
 import stocal
 
-# We first define types for the polymers that can occurr in our chemistry
+# We first define types for the polymers that can occur in our chemistry
 
 AA = stocal.molecular_type("AA")
 AB = stocal.molecular_type("AB")
