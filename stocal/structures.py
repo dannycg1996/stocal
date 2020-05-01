@@ -157,9 +157,40 @@ class multiset(dict):
                     del result[item]
         return result
 
-class strand():
-    def __init__(self, upper_toeh, lower_toeh, upper_toeh_c, lower_toeh_c):
-        self.upper_toeh = upper_toeh
-        self.lower_toeh = lower_toeh
-        self.upper_toeh_c = upper_toeh_c
-        self.lower_toeh_c = lower_toeh_c
+class DNASystem():
+    def __init__(self, strand_seq, upper_toeh, lower_toeh, upper_toeh_c, lower_toeh_c):
+        self._strand_seq = strand_seq
+        self._upper_toeh = upper_toeh
+        self._lower_toeh = lower_toeh
+        self._upper_toeh_c = upper_toeh_c
+        self._lower_toeh_c = lower_toeh_c
+
+    def get_sequence(self):
+        return self._strand_seq
+
+    def get_upper_toeh(self):
+        return self._upper_toeh
+
+    def get_lower_toeh(self):
+        return self._lower_toeh
+
+    def get_upper_toeh_c(self):
+        return self._upper_toeh_c
+
+    def get_lower_toeh_c(self):
+        return self._lower_toeh_c
+
+    def set_sequence(self, value):
+        self._strand_seq = value
+
+    def set_upper_toeh(self, value):
+        self._upper_toeh = value
+
+    def set_lower_toeh(self, value):
+        self._lower_toeh = value
+
+    def set_upper_toeh_c(self, value):
+        self._upper_toeh_c = value
+
+    def set_lower_toeh_c(self, value):
+        self._lower_toeh_c = value

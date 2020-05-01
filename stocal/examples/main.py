@@ -1,8 +1,6 @@
 from stocal import *
 from Rules import *
 import re
-import itertools
-from itertools import combinations
 
 # Two reactions: Two molecules of A forming a dimer A2 and reverse
 from stocal.structures import DNASystem
@@ -29,14 +27,14 @@ def regex_match(dna, category):
     else:
         print("Erroneous input into strand_regex method")
 
-def simulate_strand(dict): #a dictionary of dna is inputted
+#def simulate_strand(dict): #a dictionary of dna is inputted
 
-   # if len(systems)>1:
-   #     r = list(range(0,len(systems)))
-   #     pairs = list(combinations(r,2))
-   #     for (x,y) in pairs:
-            #system_a = analyse_system(systems[x])
-            #system_b = analyse_system(systems[y])
+    # if len(systems)>1:
+    #     r = list(range(0,len(systems)))
+    #     pairs = list(combinations(r,2))
+    #     for (x,y) in pairs:
+    #system_a = analyse_system(systems[x])
+    #system_b = analyse_system(systems[y])
 
 def analyse_system(dna_system):
     lower_toeh = regex_match(dna_system,"lower_th")
@@ -46,7 +44,7 @@ def analyse_system(dna_system):
     return (DNASystem(dna_system, upper_toeh, lower_toeh, upper_toeh_c, lower_toeh_c))
 
 dna = "{L' A^* R'}{L' B^* R'} {L' C^ R'} | <L D^ R> | <L E^* R> "
-simulate_strand(dna)
+#simulate_strand(dna)
 
 #print(s1)
 #trajectory = process.sample({'A': 100}, steps=1000)
