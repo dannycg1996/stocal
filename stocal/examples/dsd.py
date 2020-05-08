@@ -93,25 +93,23 @@ class UnbindingRule(stocal.TransitionRule):
         yield from self.toehold_unbinding(kl)
 
     def toehold_unbinding(self, kl):
-        kl = re.sub(spaces_at_start, '', kl)
-        kl = re.sub(spaces_at_end, '', kl)
-        print('kl:', kl)
+        kl = re.sub(spaces_at_end, '', re.sub(spaces_at_start, '', kl)) #Remove unneccesary whitespaces
         for double_th in re.finditer(double_toehold, kl):
-            print(kl[:double_th.start()])
-            label = re.search(double_th_label, double_th.group()).group()
+            label = re.search(double_th_label, double_th.group()).group() #Retrieve the label of the toehold we are unbinding
             prefix, suffix, upper_1, lower_1, upper_2, lower_2 = "", "", "", "", "", ""
-            bracket_open = kl[:double_th.start()].rfind(']')
-            bracket_close = kl[double_th.end():].find('[')
+            bracket_open = kl[:double_th.start()].rfind(']') #Possibly modify this to be min(.rfind(']'),.rfind(':') for overhangs
+            bracket_close = kl[double_th.end():].find('[') #Possibly modify this to be max(.rfind('['),.rfind(':') for overhangs
+
             if bracket_open !=-1:
                 prefix = kl[:bracket_open]
             else:
                 bracket_open = 0
-
             if bracket_close != -1:
                 suffix = kl[bracket_close:]
             else:
                 bracket_close = len(double_th.group())
 
+            #Todo: Make this into a function
             if re.search(upper_sequence, kl[bracket_open:double_th.start()]) is not None:
                 upper_1 = re.search(upper_sequence, kl[bracket_open:double_th.start()]).group()
             if re.search(lower_sequence, kl[bracket_open:double_th.start()]) is not None:
@@ -123,15 +121,13 @@ class UnbindingRule(stocal.TransitionRule):
 
             #TODO: STOP the matchings (upper_th next etc) from including the brackets!!!! HOW?!
             print("prefix" ,prefix)
-            print("search range", re.search(upper_sequence, kl[bracket_open:double_th.start()]))
-            print(bracket_open)
-            print(double_th.start())
             print("upper 1", upper_1)
             print("label", label)
             print("upper 2", upper_2)
             print("lower 1", lower_1)
             print("lower 2", lower_2)
             print("suffix", suffix)
+            #Todo: Fix this part. The upper and lower strands don't necessarily connect in this way.
             part_A = prefix + "<" + upper_1 + " " + label + "^ " + upper_2 + ">"
             part_A_fin = re.sub(empty_bracket, '', part_A)
             part_B = suffix + "{" + lower_1 + " " + label + "^*" + lower_2 + "}"
