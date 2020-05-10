@@ -35,7 +35,8 @@ beta = 1000 ** -2
 format = re.compile('<[^\[\]{}]*?>|\[[^<>{}]*?]|{[^<>\[\]]*?}|\s*:*')  # TODO: Fix this - speak to Harold.
 # Needs to check that each part of a strand meets one of these requirements. Fullmatch does not work.
 
-double_toehold = re.compile('(?:\[\W*?(\w)(?:\^\W*?\]))')  # Matches on double toeholds of the form [A^] not [A^ B]
+double_strand = re.compile('(?:\[.*?\])') #Matches on any double strand. Includes the brackets.
+lone_double_toehold = re.compile('(?:\[\W*?(\w)(?:\^\W*?\]))')  # Matches on double toeholds of the form [A^] not [A^ B]
 double_label = re.compile('(\w)(?=\^)(?=[^<>{}]*])')  # Returns the label of a double toehold regex. Better way of doing this?
 upper_label = re.compile('(\w)(?=\^\s)(?=[^<>]*>)|(\w)(?=\^>)(?=[^<>]*>)')  # Returns the labels of upper toeholds.
 lower_label = re.compile('(\w)(?=\^\*)(?=[^{}]*})')  # Returns labels of lower toeholds/
@@ -105,7 +106,7 @@ class UnbindingRule(stocal.TransitionRule):
 
     def toehold_unbinding(self, kl):
         kl = format_sequence(kl)
-        for double_th in re.finditer(double_toehold, kl):
+        for double_th in re.finditer(lone_double_toehold, kl):
             print("kl:", kl)
             label = re.search(double_label, double_th.group()).group()  # Retrieve the label of the toehold we are unbinding
             prefix, suffix = "", ""
@@ -150,8 +151,39 @@ class UnbindingRule(stocal.TransitionRule):
             yield self.Transition([kl], [format_sequence(part_a), format_sequence(part_b)], alpha)
 
 
+class CoveringRule(stocal.TransitionRule):
+    """Splits two strings when a toehold unbinds"""
+    Transition = stocal.MassAction
+
+    # TODO: Does this rule still work when toeholds are involved?
+    def novel_reactions(self, k):
+        yield from self.toehold_covering(k)
+
+    def toehold_covering(self, k):
+        for double_strand in re.finditer(lone_double_toehold, k):
+            print("double_strand", double_strand)
+        # for match_1 in re.finditer(regex_1, k):
+        #     for match_2 in re.finditer(regex_2, l):
+        #         if match_1.group() == match_2.group():
+        #             if regex_1 == upper_label:
+        #                 print("upper_th")
+        #                 part_a = k[:match_1.start()] + re.search(close_bracket, k[match_1.start():]).group() + l[                                                                                                            :match_2.start()] + re.search(
+        #                     close_bracket, l[match_2.start():]).group()
+        #                 part_b = re.search(open_bracket, l[:match_2.end()]).group() + l[match_2.end() + 2:] + re.search(
+        #                     open_bracket, k[:match_1.end() + 1]).group() + k[match_1.end() + 1:]
+        #             else:
+        #                 print("lower_th")
+        #                 part_a = k[:match_1.start()] + re.search(close_bracket, k[match_1.start():]).group() + l[:match_2.start()] + re.search(close_bracket, l[match_2.start():]).group()
+        #                 part_b = re.search(open_bracket, l[:match_2.end()]).group() + l[match_2.end() + 1:] + re.search(
+        #                     open_bracket, k[:match_1.end() + 1]).group() + k[match_1.end() + 2:]
+        #             draft_strand = part_a + "[" + match_2.group() + "^]" + part_b
+        #             final_strand = format_sequence(draft_strand)
+        #             print("final", final_strand)
+            yield self.Transition([k], [k], alpha)
+
 process = stocal.Process(
-    rules=[UnbindingRule(), BindingRule()]
+    rules = [CoveringRule()]
+    #rules=[UnbindingRule(), BindingRule()]
 )
 
 if __name__ == '__main__':
