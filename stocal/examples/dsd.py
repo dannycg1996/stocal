@@ -36,23 +36,18 @@ format = re.compile('<[^\[\]{}]*?>|\[[^<>{}]*?]|{[^<>\[\]]*?}|\s*:*')  # TODO: F
 # Needs to check that each part of a strand meets one of these requirements. Fullmatch does not work.
 
 double_toehold = re.compile('(?:\[\W*?(\w)(?:\^\W*?\]))')  # Matches on double toeholds of the form [A^] not [A^ B]
-double_label = re.compile(
-    '(\w)(?=\^)(?=[^<>{}]*])')  # Returns the label of a double toehold regex. Better way of doing this?
+double_label = re.compile('(\w)(?=\^)(?=[^<>{}]*])')  # Returns the label of a double toehold regex. Better way of doing this?
 upper_label = re.compile('(\w)(?=\^\s)(?=[^<>]*>)|(\w)(?=\^>)(?=[^<>]*>)')  # Returns the labels of upper toeholds.
 lower_label = re.compile('(\w)(?=\^\*)(?=[^{}]*})')  # Returns labels of lower toeholds/
 open_bracket = re.compile('[\[{]*?(<)|[\[<]*?({)|[<{]*?(])')  # Matches on open brackets [, { and <
 close_bracket = re.compile('[\]}]*?(>)|[\]>]*?(})|[>}]*?(])')  # Matches on close brackets ], } and >
 empty_bracket = re.compile('(<(?:\s)*>)|({(?:\s)*})')  # Matches on empty brackets like <>, {} and [ ].
 
-upper_sequence = re.compile(
-    '((?<=\<).+?(?=\>))')  # Pulls through characters between < and > chars, excluding the brackets themselves.
-lower_sequence = re.compile(
-    '((?<=\{).+?(?=\}))')  # Pulls through characters between { and } chars, excluding the brackets themselves.
+upper_sequence = re.compile('((?<=\<).+?(?=\>))')  # Pulls through characters between < and > chars, excluding the brackets themselves.
+lower_sequence = re.compile('((?<=\{).+?(?=\}))')  # Pulls through characters between { and } chars, excluding the brackets themselves.
 
-spaces_start = re.compile(
-    '(?<=\<)(\s+?)(?=\w)|(?<=\{)(\s+?)(?=\w)|(?<=\[)(\s+?)(?=\w)')  # Matches on spaces between brackets and words, like < A or { B
-spaces_end = re.compile(
-    '(?<=\S)(\s)+?(?=\>)|(?<=\S)(\s)+?(?=\])|(?<=\S)(\s)+?(?=\})')  # Matches on spaces before bracket closes
+spaces_start = re.compile('(?<=\<)(\s+?)(?=\w)|(?<=\{)(\s+?)(?=\w)|(?<=\[)(\s+?)(?=\w)')  # Matches on spaces between brackets and words, like < A or { B
+spaces_end = re.compile('(?<=\S)(\s)+?(?=\>)|(?<=\S)(\s)+?(?=\])|(?<=\S)(\s)+?(?=\})')  # Matches on spaces before bracket closes
 
 
 def find_sub_sequence(regex, seq):
@@ -85,19 +80,15 @@ class BindingRule(stocal.TransitionRule):
                 if match_1.group() == match_2.group():
                     if regex_1 == upper_label:
                         print("upper_th")
-                        part_a = k[:match_1.start()] + re.search(close_bracket, k[match_1.start():]).group() + l[
-                                                                                                               :match_2.start()] + re.search(
+                        part_a = k[:match_1.start()] + re.search(close_bracket, k[match_1.start():]).group() + l[                                                                                                            :match_2.start()] + re.search(
                             close_bracket, l[match_2.start():]).group()
                         part_b = re.search(open_bracket, l[:match_2.end()]).group() + l[match_2.end() + 2:] + re.search(
                             open_bracket, k[:match_1.end() + 1]).group() + k[match_1.end() + 1:]
                     else:
                         print("lower_th")
-                        part_a = k[:match_1.start()] + re.search(close_bracket, k[match_1.start():]).group() + l[
-                                                                                                               :match_2.start()] + re.search(
-                            close_bracket, l[match_2.start():]).group()
+                        part_a = k[:match_1.start()] + re.search(close_bracket, k[match_1.start():]).group() + l[:match_2.start()] + re.search(close_bracket, l[match_2.start():]).group()
                         part_b = re.search(open_bracket, l[:match_2.end()]).group() + l[match_2.end() + 1:] + re.search(
                             open_bracket, k[:match_1.end() + 1]).group() + k[match_1.end() + 2:]
-
                     draft_strand = part_a + "[" + match_2.group() + "^]" + part_b
                     final_strand = format_sequence(draft_strand)
                     print("final", final_strand)
@@ -116,14 +107,10 @@ class UnbindingRule(stocal.TransitionRule):
         kl = format_sequence(kl)
         for double_th in re.finditer(double_toehold, kl):
             print("kl:", kl)
-            label = re.search(double_label,
-                              double_th.group()).group()  # Retrieve the label of the toehold we are unbinding
+            label = re.search(double_label, double_th.group()).group()  # Retrieve the label of the toehold we are unbinding
             prefix, suffix = "", ""
-            bracket_open = kl[:double_th.start()].rfind(
-                ']')  # Possibly modify this to be min(.rfind(']'),.rfind(':') for overhangs
-            bracket_close = kl[double_th.end():].find(
-                '[')  # Possibly modify this to be max(.rfind('['),.rfind(':') for overhangs
-
+            bracket_open = kl[:double_th.start()].rfind(']')  # Possibly modify this to be min(.rfind(']'),.rfind(':') for overhangs
+            bracket_close = kl[double_th.end():].find('[')  # Possibly modify this to be max(.rfind('['),.rfind(':') for overhangs
             if bracket_open != -1:
                 prefix = kl[:bracket_open + 1]
                 # print(prefix,"prefix")
@@ -144,7 +131,7 @@ class UnbindingRule(stocal.TransitionRule):
             part_a = "<" + upper_1 + " " + label + "^ " + upper_2 + ">"
             part_b = "{" + lower_1 + " " + label + "^* " + lower_2 + "}"
 
-            # Attach the prefix and/or suffix to the correct strand (upper or lower)
+            # Attach the prefix and/or suffix to the correct strand (upper or lower):
             if upper_1 == "":
                 if upper_2 == "":
                     part_b = prefix + part_b + suffix
