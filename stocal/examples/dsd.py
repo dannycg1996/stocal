@@ -122,11 +122,17 @@ class UnbindingRule(stocal.TransitionRule):
             if bracket_close != -1:
                 suffix = kl[bracket_close:]
             else:
-                bracket_close = len(double_th.group())
+                bracket_close = len(kl)
 
             upper_1 = find_sub_sequence(upper_sequence, kl[bracket_open:double_th.start()])
             lower_1 = find_sub_sequence(lower_sequence, kl[bracket_open:double_th.start()])
-            upper_2 = find_sub_sequence(upper_sequence, kl[double_th.end() + 1:bracket_close])
+            print(bracket_close, "bracket close")
+            print("kl[double_th.end() + 1:bracket_close]", kl[double_th.end() + 1:bracket_close])
+            print(kl)
+            print("double_th", double_th)
+            print("double_th.start()", double_th.start())
+            print("double_th.end()", double_th.end())
+            upper_2 = find_sub_sequence(upper_sequence, kl[double_th.end():bracket_close])
             lower_2 = find_sub_sequence(lower_sequence, kl[double_th.end():bracket_close])
 
             print("prefix" ,prefix)
@@ -139,7 +145,7 @@ class UnbindingRule(stocal.TransitionRule):
             #Todo: Fix this part. The upper and lower strands don't necessarily connect in this way.
             part_a = prefix + "<" + upper_1 + " " + label + "^ " + upper_2 + ">"
             part_a_fin = format_sequence(part_a)
-            part_b = suffix + "{" + lower_1 + " " + label + "^*" + lower_2 + "}"
+            part_b = suffix + "{" + lower_1 + " " + label + "^* " + lower_2 + "}"
             part_b_fin = format_sequence(part_b)
             print("Final A:    ", part_a_fin)
             print("Final B:    ", part_b_fin)
@@ -147,7 +153,7 @@ class UnbindingRule(stocal.TransitionRule):
 
 
 process = stocal.Process(
-    rules=[BindingRule(), UnbindingRule()]
+    rules=[UnbindingRule()]
 )
 
 if __name__ == '__main__':
