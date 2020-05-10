@@ -35,8 +35,8 @@ beta = 1000**-2
 
 #initial_state = {"{S' N^* L' R'}": 60, "<L N^ M N^>": 50}
 #initial_state = {"{ N^* L' R'}": 60, "<L N^ M N^>": 50}
-#initial_state = {"{N^* S' N^*}[C^]": 60, "<N^ M N^>": 50, "{L'}<L>[N^]<R>[M^]{P'}<S'>[A^]{B}" : 50}
-initial_state = {"{L'}<L>[N^]<R>{R'}" : 50}
+#initial_state = {"{N^* S' N^*}[C^]": 60, "<N^ M N^>": 50, "{L'}<L>[N^]<R>[M^]<S'>[A^]{B}" : 50}
+initial_state = {"{L'}<L>[N^]<R>{R'}" : 5000}
 
 format = re.compile('<[^\[\]{}]*?>|\[[^<>{}]*?]|{[^<>\[\]]*?}|\s*:*') #TODO: Fix this - speak to Harold.
 # Needs to check that each part of a strand meets one of these requirements. Fullmatch does not work.
@@ -110,50 +110,53 @@ class UnbindingRule(stocal.TransitionRule):
     def toehold_unbinding(self, kl):
         kl = format_sequence(kl)
         for double_th in re.finditer(double_toehold, kl):
+            print("kl:", kl)
             label = re.search(double_label, double_th.group()).group() #Retrieve the label of the toehold we are unbinding
             prefix, suffix = "", ""
             bracket_open = kl[:double_th.start()].rfind(']') #Possibly modify this to be min(.rfind(']'),.rfind(':') for overhangs
             bracket_close = kl[double_th.end():].find('[') #Possibly modify this to be max(.rfind('['),.rfind(':') for overhangs
 
             if bracket_open !=-1:
-                prefix = kl[:bracket_open]
+                prefix = kl[:bracket_open+1]
+                #print(prefix,"prefix")
             else:
                 bracket_open = 0
             if bracket_close != -1:
-                suffix = kl[bracket_close:]
+                suffix = kl[double_th.end()+bracket_close:]
+                #print("suffix", suffix)
             else:
                 bracket_close = len(kl)
 
+            #Find the upper strands before and after the double toehold. Likewise with lower strands
             upper_1 = find_sub_sequence(upper_sequence, kl[bracket_open:double_th.start()])
             lower_1 = find_sub_sequence(lower_sequence, kl[bracket_open:double_th.start()])
-            print(bracket_close, "bracket close")
-            print("kl[double_th.end() + 1:bracket_close]", kl[double_th.end() + 1:bracket_close])
-            print(kl)
-            print("double_th", double_th)
-            print("double_th.start()", double_th.start())
-            print("double_th.end()", double_th.end())
-            upper_2 = find_sub_sequence(upper_sequence, kl[double_th.end():bracket_close])
-            lower_2 = find_sub_sequence(lower_sequence, kl[double_th.end():bracket_close])
+            upper_2 = find_sub_sequence(upper_sequence, kl[double_th.end():double_th.end()+bracket_close])
+            lower_2 = find_sub_sequence(lower_sequence, kl[double_th.end():double_th.end()+bracket_close])
 
-            print("prefix" ,prefix)
-            print("upper 1", upper_1)
-            print("label", label)
-            print("upper 2", upper_2)
-            print("lower 1", lower_1)
-            print("lower 2", lower_2)
-            print("suffix", suffix)
-            #Todo: Fix this part. The upper and lower strands don't necessarily connect in this way.
-            part_a = prefix + "<" + upper_1 + " " + label + "^ " + upper_2 + ">"
-            part_a_fin = format_sequence(part_a)
-            part_b = suffix + "{" + lower_1 + " " + label + "^* " + lower_2 + "}"
-            part_b_fin = format_sequence(part_b)
-            print("Final A:    ", part_a_fin)
-            print("Final B:    ", part_b_fin)
-            yield self.Transition([kl], [part_a_fin, part_b_fin], alpha)
+            part_a = "<" + upper_1 + " " + label + "^ " + upper_2 + ">"
+            part_b = "{" + lower_1 + " " + label + "^* " + lower_2 + "}"
+
+            #Attach the prefix and/or suffix to the correct strand (upper or lower)
+            if upper_1 == "":
+                if upper_2 == "":
+                    part_b = prefix + part_b + suffix
+                else:
+                    part_a = part_a + suffix
+                    part_b = prefix + part_b
+            else:
+                if upper_2 == "":
+                    part_a = prefix + part_a
+                    part_b = part_b + suffix
+                else:
+                    part_a = prefix + part_a + suffix
+
+            print("Final A:    ", format_sequence(part_a))
+            print("Final B:    ", format_sequence(part_b))
+            yield self.Transition([kl], [format_sequence(part_a), format_sequence(part_b)], alpha)
 
 
 process = stocal.Process(
-    rules=[UnbindingRule()]
+    rules=[UnbindingRule(), BindingRule()]
 )
 
 if __name__ == '__main__':
@@ -196,6 +199,7 @@ if __name__ == '__main__':
     #                 print(final_strand)
     #                 yield self.Transition([k, l], [final_strand], alpha)
 
+#Unused regex. Kept temporarily for safekeeping.
 #bound_th = re.compile('(\w)(?=\^)(?=[^\[\]]*])')
 #double_toehold = re.compile('\[\W*?(\w)\^\W*?\]')
 #last_upper_th = re.compile('<([^>]*)>*(?!(?:.*<|.*\[))')
@@ -216,3 +220,30 @@ if __name__ == '__main__':
 #     upper_2 = re.search(upper_sequence, kl[double_th.end() + 1:bracket_close]).group()
             # if re.search(lower_sequence, kl[double_th.end():bracket_close]) is not None:
 #     lower_2 = re.search(lower_sequence, kl[double_th.end():bracket_close]).group()
+
+            # elif prefix == "":
+            #     print("2")
+            #     if upper_1 == "":
+            #         if upper_2 == "":
+            #             part_b = part_b + suffix
+            #         else:
+            #             part_a = part_a + suffix
+            #     else:
+            #         if upper_2 == "":
+            #             print("YES HERE A")
+            #             part_b = part_b + suffix
+            #         else:
+            #             print("YES HERE NO B")
+            #             part_a = part_a + suffix
+            # elif suffix == "":
+            #     print("3")
+            #     if upper_1 == "":
+            #         if upper_2 == "":
+            #             part_b = prefix + part_b
+            #         else:
+            #             part_b = prefix + part_b
+            #     else:
+            #         if upper_2 == "":
+            #             part_a = prefix + part_a
+            #         else:
+            #             part_a = prefix + part_a
