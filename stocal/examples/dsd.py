@@ -55,6 +55,13 @@ lower_sequence = re.compile('((?<=\{).+?(?=\}))') #Pulls through characters betw
 spaces_at_start = re.compile('<(\s)+?\w|{(\s)+?\w|\[(\s)+?\w') #Matches on spaces between brackets and words, like < A or { B
 spaces_at_end = re.compile('(?:\w|\^|\*)(\s)+?>|(?:\w|\^|\*)(\s)+?\]|(?:\w|\^|\*)(\s)+?}') #Matches on spaces before bracket closes.
 
+def find_sub_sequence(regex, seq):
+    print(regex)
+    print("seq", seq)
+    if re.search(regex, seq) is not None:
+        return(re.search(regex, seq).group())
+    return("")
+
 class BindingRule(stocal.TransitionRule):
     """Join any two strings into their concatenations"""
     Transition = stocal.MassAction
@@ -96,7 +103,7 @@ class UnbindingRule(stocal.TransitionRule):
         kl = re.sub(spaces_at_end, '', re.sub(spaces_at_start, '', kl)) #Remove unneccesary whitespaces
         for double_th in re.finditer(double_toehold, kl):
             label = re.search(double_th_label, double_th.group()).group() #Retrieve the label of the toehold we are unbinding
-            prefix, suffix, upper_1, lower_1, upper_2, lower_2 = "", "", "", "", "", ""
+            prefix, suffix = "", ""
             bracket_open = kl[:double_th.start()].rfind(']') #Possibly modify this to be min(.rfind(']'),.rfind(':') for overhangs
             bracket_close = kl[double_th.end():].find('[') #Possibly modify this to be max(.rfind('['),.rfind(':') for overhangs
 
@@ -109,15 +116,10 @@ class UnbindingRule(stocal.TransitionRule):
             else:
                 bracket_close = len(double_th.group())
 
-            #Todo: Make this into a function
-            if re.search(upper_sequence, kl[bracket_open:double_th.start()]) is not None:
-                upper_1 = re.search(upper_sequence, kl[bracket_open:double_th.start()]).group()
-            if re.search(lower_sequence, kl[bracket_open:double_th.start()]) is not None:
-                lower_1 = re.search(lower_sequence, kl[bracket_open:double_th.start()]).group()
-            if re.search(upper_sequence, kl[double_th.end() + 1:bracket_close]) is not None:
-                upper_2 = re.search(upper_sequence, kl[double_th.end() + 1:bracket_close]).group()
-            if re.search(lower_sequence, kl[double_th.end():bracket_close]) is not None:
-                lower_2 = re.search(lower_sequence, kl[double_th.end():bracket_close]).group()
+            upper_1 = find_sub_sequence(upper_sequence, kl[bracket_open:double_th.start()])
+            lower_1 = find_sub_sequence(lower_sequence, kl[bracket_open:double_th.start()])
+            upper_2 = find_sub_sequence(upper_sequence, kl[double_th.end() + 1:bracket_close])
+            lower_2 = find_sub_sequence(lower_sequence, kl[double_th.end():bracket_close])
 
             #TODO: STOP the matchings (upper_th next etc) from including the brackets!!!! HOW?!
             print("prefix" ,prefix)
@@ -186,3 +188,13 @@ if __name__ == '__main__':
 #last_upper_th = re.compile('<([^>]*)>')
 #last_lower_th = re.compile('{([^}]*)}')
 #last_lower_th = re.compile('({[^}]*)}*(?!(?:.*{|.*\[))')
+
+            #if re.search(upper_sequence, kl[bracket_open:double_th.start()]) is not None:
+            #    upper_1 = re.search(upper_sequence, kl[bracket_open:double_th.start()]).group()
+            #    print("upper_1", upper_1)
+            #if re.search(lower_sequence, kl[bracket_open:double_th.start()]) is not None:
+            #    lower_1 = re.search(lower_sequence, kl[bracket_open:double_th.start()]).group()
+                        # if re.search(upper_sequence, kl[double_th.end() + 1:bracket_close]) is not None:
+            #     upper_2 = re.search(upper_sequence, kl[double_th.end() + 1:bracket_close]).group()
+                        # if re.search(lower_sequence, kl[double_th.end():bracket_close]) is not None:
+            #     lower_2 = re.search(lower_sequence, kl[double_th.end():bracket_close]).group()
