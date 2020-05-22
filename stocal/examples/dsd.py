@@ -39,19 +39,23 @@ re_lower = re.compile('(?:\{.*?\})')  # Matches on any lower strand (includes th
 
 re_short_double_th = re.compile('(?:\[\W*?(\w)(?:\^\W*?\]))')  # Matches on double toeholds of the form [A^] not [A^ B]
 re_double_lab = re.compile('(\w)(?=\^)(?=[^<>{}]*])')  # Returns the label of a double toehold regex.
-re_upper_lab = re.compile('(\w)(?=\^)(?=[^<>]*>)') #Returns the labels of upper toeholds.
+re_upper_lab = re.compile('(\w)(?=\^)(?=[^<>]*>)')  # Returns the labels of upper toeholds.
 re_lower_lab = re.compile('(\w)(?=\^\*)(?=[^{}]*})')  # Returns labels of lower toeholds
 
 re_opening = re.compile('[\[{]*?(<)|[\[<]*?({)|[<{]*?(])')  # Matches on open brackets [, { and <
 re_closing = re.compile('[\]}]*?(>)|[\]>]*?(})|[>}]*?(])')  # Matches on close brackets ], } and >
+
 re_empty = re.compile('(<(?:\s)*>)|({(?:\s)*})|\{\*\}')  # Matches on empty brackets like <>, {} and [ ].
 re_spaces = re.compile(
     '(?<=\<)(\s+)|(?<=\{)(\s+)|(?<=\[)(\s+)|(\s)+(?=\>)|(\s)+(?=\])|(\s)+(?=\})')  # Matches on spaces at start or end of parts.
 
-re_gate = re.compile(f"({re_lower.pattern})?({re_upper.pattern})?({re_double.pattern})({re_upper.pattern})?({re_lower.pattern})?")
-re_strand = re.compile(fr"({re_lower.pattern})|({re_upper.pattern})")
-re_cover_start = re.compile(r'(\w)(?=\^\*\s*\}\s*\<.*\1\^\s*\>)')
-re_cover_end = re.compile(r'(?<=\<)\s*?(\w)(?=\^.*>\s*\{\s*\1\^\*)')
+re_gate = re.compile(
+    f"({re_lower.pattern})?({re_upper.pattern})?({re_double.pattern})({re_upper.pattern})?({re_lower.pattern})?")  # Matches on gates
+re_strand = re.compile(fr"({re_lower.pattern})|({re_upper.pattern})")  # Matches on strands
+re_pre_cover = re.compile(
+    r'(\w)(?=\^\*\s*\}\s*\<.*\1\^\s*\>)')  # Identifies where the Covering rule can be applied on a gate, before the d_s
+re_post_cover = re.compile(
+    r'(?<=\<)\s*?(\w)(?=\^.*>\s*\{\s*\1\^\*)')  # Identifies where the Covering rule can be applied on a gate, after the d_s
 
 
 def find_sub_sequence(regex, seq):
@@ -84,21 +88,16 @@ class BindingRule(stocal.TransitionRule):
             for match_2 in re.finditer(regex_2, l):
                 if match_1.group() == match_2.group():
                     if regex_1 == re_upper_lab:
-                        print("upper_th")
-                        part_a = k[:match_1.start()] + re.search(re_closing, k[match_1.start():]).group() + l[
-                                                                                                            :match_2.start()] + re.search(
-                            re_closing, l[match_2.start():]).group()
-                        part_b = re.search(re_opening, l[:match_2.end()]).group() + l[match_2.end() + 2:] + re.search(
-                            re_opening, k[:match_1.end() + 1]).group() + k[match_1.end() + 1:]
+                        part_a = k[:match_1.start()] + re.search(re_closing, k[match_1.start():]).group() + l[:match_2.start()] + \
+                                 re.search(re_closing, l[match_2.start():]).group()
+                        part_b = re.search(re_opening, l[:match_2.end()]).group() + l[match_2.end() + 2:] + \
+                                 re.search(re_opening, k[:match_1.end() + 1]).group() + k[match_1.end() + 1:]
                     else:
-                        print("lower_th")
-                        part_a = k[:match_1.start()] + re.search(re_closing, k[match_1.start():]).group() + l[
-                                                                                                            :match_2.start()] + re.search(
-                            re_closing, l[match_2.start():]).group()
-                        part_b = re.search(re_opening, l[:match_2.end()]).group() + l[match_2.end() + 1:] + re.search(
-                            re_opening, k[:match_1.end() + 1]).group() + k[match_1.end() + 2:]
-                    draft_strand = part_a + "[" + match_2.group() + "^]" + part_b
-                    final_strand = format_sequence(draft_strand)
+                        part_a = k[:match_1.start()] + re.search(re_closing, k[match_1.start():]).group() + l[:match_2.start()] + \
+                                 re.search(re_closing, l[match_2.start():]).group()
+                        part_b = re.search(re_opening, l[:match_2.end()]).group() + l[match_2.end() + 1:] + \
+                                 re.search(re_opening, k[:match_1.end() + 1]).group() + k[match_1.end() + 2:]
+                    final_strand = format_sequence(part_a + "[" + match_2.group() + "^]" + part_b)
                     print("final", final_strand)
                     yield self.Transition([k, l], [final_strand], alpha)
 
@@ -109,7 +108,6 @@ class UnbindingRule(stocal.TransitionRule):
 
     # TODO: Does this rule still work when toeholds are involved?
     def novel_reactions(self, kl):
-        print(kl)
         yield from self.toehold_unbinding(kl)
 
     def toehold_unbinding(self, kl):
@@ -119,10 +117,8 @@ class UnbindingRule(stocal.TransitionRule):
             label = re.search(re_double_lab,
                               double_th.group()).group()  # Retrieve the label of the toehold we are unbinding
             prefix, suffix = "", ""
-            bracket_open = kl[:double_th.start()].rfind(
-                ']')  # Possibly modify this to be min(.rfind(']'),.rfind(':') for overhangs
-            bracket_close = kl[double_th.end():].find(
-                '[')  # Possibly modify this to be max(.rfind('['),.rfind(':') for overhangs
+            bracket_open = kl[:double_th.start()].rfind(']')  # Possibly modify this to be min(.rfind(']'),.rfind(':') for overhangs
+            bracket_close = kl[double_th.end():].find('[')  # Possibly modify this to be max(.rfind('['),.rfind(':') for overhangs
             if bracket_open != -1:
                 prefix = kl[:bracket_open + 1]
             else:
@@ -171,42 +167,24 @@ class CoveringRule(stocal.TransitionRule):
     def toehold_covering(self, k):
         k = format_sequence(k)
         for gate in re.finditer(re_gate, k):
-            for d_s in re.finditer(re_double, gate.group()): #DOES NOT NEED TO BE FINDITER AS THERE IS ONLY ONE DOUBLE STRAND
-                cover_pos = re.search(re_cover_end, gate.group())
-                if cover_pos is not None:
-                    th_pos = gate.group()[cover_pos.end() + 1:].find(cover_pos.group() + "^*")
-                    updated_gate = format_sequence(gate.group()[:d_s.end() - 1] + " " + cover_pos.group() + "]<" + gate.group()[cover_pos.end() + 1:cover_pos.end() + 1 + th_pos] + gate.group()[cover_pos.end() + th_pos + 4:])
-                    print("updated_gate", updated_gate)
-                    updated_seq = k[:gate.start()] + updated_gate + k[gate.end():]
-                    print(updated_seq, "updated seq")
-                    yield self.Transition([k], [updated_seq], alpha)
-                cover_pos = re.search(re_cover_start, gate.group())
-                if cover_pos is not None:
-                    th_pos = gate.group()[cover_pos.start()+2:d_s.start()].find(cover_pos.group() + "^")
-                    updated_gate = format_sequence(gate.group()[:cover_pos.start()] + gate.group()[cover_pos.end()+2:cover_pos.end()+th_pos]+">[" + cover_pos.group() + "^ " + gate.group()[d_s.start()+1:])
-                    updated_seq = k[:gate.start()] + updated_gate + k[gate.end():]
-                    print(updated_seq, "UPDATED SEQ")
-                    yield self.Transition([k], [updated_seq], alpha)
-                    #TODO: TEST ALL THIS AND MAKE IT WORK NICELY (CONDENSE IT)
-
-
-                #print("gate", gate)
-                #print(gate.start(), "GATES")
-                updated_gate = self.toehold_covering_matching(gate.group())
-        #else:
-            #seq = self.toehold_covering_matching(k)
-            #yield self.Transition([k], [seq], alpha)
-
-    def toehold_covering_matching(self, gate):
-        for d_s in re.finditer(re_double, gate):
-            cover_pos = re.search(re_cover_end, gate)
-            if cover_pos is not None:
-                th_pos = gate[cover_pos.end() + 1:].find(cover_pos.group() + "^*")
-                print(th_pos, "lower label")
-                updated_gate = format_sequence(gate[:d_s.end() - 1] + " " + cover_pos.group() + "]<" + gate[cover_pos.end() + 1:cover_pos.end() + 1 + th_pos] + gate[cover_pos.end() + th_pos + 4:])
-                print("updated_gate", updated_gate)
-            return (cover_pos)
-
+            d_s = re.search(re_double, gate.group())
+            pre_cover = re.search(re_pre_cover, gate.group())
+            post_cover = re.search(re_post_cover, gate.group())
+            if pre_cover is not None:
+                th_pos = gate.group()[pre_cover.start() + 2: d_s.start()].find(pre_cover.group() + "^")
+                updated_gate = gate.group()[:pre_cover.start()] + gate.group()[pre_cover.end() + 2: pre_cover.end() + th_pos] + \
+                               ">[" + pre_cover.group() + "^ " + gate.group()[d_s.start() + 1:]
+                updated_seq = k[:gate.start()] + format_sequence(updated_gate) + k[gate.end():]
+                print(updated_seq, "updated seq")
+                yield self.Transition([k], [updated_seq], alpha)
+            if post_cover is not None:
+                th_c_pos = gate.group()[post_cover.end() + 1:].find(post_cover.group() + "^*")
+                updated_gate = gate.group()[:d_s.end() - 1] + " " + post_cover.group() + "]<" + \
+                               gate.group()[post_cover.end() + 1: post_cover.end() + th_c_pos + 1] + \
+                               gate.group()[post_cover.end() + th_c_pos + 4:]
+                updated_seq = k[:gate.start()] + format_sequence(updated_gate) + k[gate.end():]
+                print(updated_seq, "updated seq")
+                yield self.Transition([k], [updated_seq], alpha)
 
 
 process = stocal.Process(
@@ -217,9 +195,7 @@ process = stocal.Process(
 if __name__ == '__main__':
     # initial_state = {"{S' N^* L' R'}": 60, "<L N^ M N^>": 50}
     # initial_state = {"{ N^* L' R'}": 60, "<L N^ M N^>": 50}
-    #initial_state = {"{N^* S' N^*}[C^]": 60, "<N^ M N^>": 50, "{L'}<L>[N^]<R>[M^]<S'>[A^]{B}" : 50}
-    #initial_state = { "{L' N^ R'}": 60}
-
+    # initial_state = {"{N^* S' N^*}[C^]": 60, "<N^ M N^>": 50, "{L'}<L>[N^]<R>[M^]<S'>[A^]{B}" : 50}
     # initial_state = {"<A>{B}[D^]<C^ F>{C^* G}": 60}
     initial_state = {"{A L^*}<B L^>[N^]<   R^>{B^*}:{L'}<L>[N^]<  F^>{B^*}": 500}
     # TODO:  re.fullmatch() does not work as I thought it did, so error checking needs to be updated so as to make sure every <, { and [ has a corresponding >, }, ].
@@ -239,7 +215,7 @@ if __name__ == '__main__':
 #     yield from self.toehold_binding(k, l, lower_th, upper_th_c)
 #     yield from self.toehold_binding(k, l, upper_th_c, lower_th)
 
-#re_gate = re.compile('(.{2,}?(?=\:))|(\:)(?!.*\:)(.*)')
+# re_gate = re.compile('(.{2,}?(?=\:))|(\:)(?!.*\:)(.*)')
 
 # Original toehold_binding function
 # def toehold_binding(self, k, l, regex_1, regex_2):
@@ -329,23 +305,33 @@ if __name__ == '__main__':
 #     #seq = re.sub(re_spaces_end, '', re.sub(re_spaces_start, '', seq))  # Remove unneccesary whitespaces
 #     return re.sub(re_empty, '', seq)
 
-            # x = re.search(r"(?<=\<)\s*?(\w)(?=\^.*>\s*\{\s*\1\^\*)",gate)
-            # return("x")
-            # for upper_seq in re.finditer(re_upper, gate[d_s.end():]):
-            #     for lower_seq in re.finditer(re_lower, gate[d_s.end():]):
-            #         for upper_th in re.finditer(re_upper_lab_start, upper_seq.group()):
-            #             for lower_thc in re.finditer(re_lower_lab_start, lower_seq.group()):
-            #                 if upper_th.group() == lower_thc.group():
-            #                     updated_gate = format_sequence(gate[:d_s.end()-1] + " " + upper_th.group() + "]" + "<" + upper_seq.group()[upper_th.end():] + "{" + lower_seq.group()[lower_thc.end()+1:])
-            #                     print(updated_gate)
-            #                     return(updated_gate)
+# x = re.search(r"(?<=\<)\s*?(\w)(?=\^.*>\s*\{\s*\1\^\*)",gate)
+# return("x")
+# for upper_seq in re.finditer(re_upper, gate[d_s.end():]):
+#     for lower_seq in re.finditer(re_lower, gate[d_s.end():]):
+#         for upper_th in re.finditer(re_upper_lab_start, upper_seq.group()):
+#             for lower_thc in re.finditer(re_lower_lab_start, lower_seq.group()):
+#                 if upper_th.group() == lower_thc.group():
+#                     updated_gate = format_sequence(gate[:d_s.end()-1] + " " + upper_th.group() + "]" + "<" + upper_seq.group()[upper_th.end():] + "{" + lower_seq.group()[lower_thc.end()+1:])
+#                     print(updated_gate)
+#                     return(updated_gate)
 
-    # def toehold_covering_matching(self, gate):
-    #     for d_s in re.finditer(re_double, gate):
-    #         cover_pos = re.search(re_cover_end, gate)
-    #         if cover_pos is not None:
-    #             th_pos = gate[cover_pos.end() + 1:].find(cover_pos.group() + "^*")
-    #             print(th_pos, "lower label")
-    #             updated_gate = format_sequence(gate[:d_s.end() - 1] + " " + cover_pos.group() + "]<" + gate[cover_pos.end() + 1:cover_pos.end() + 1 + th_pos] + gate[cover_pos.end() + th_pos + 4:])
-    #             print("updated_gate", updated_gate)
-    #         return (cover_pos)
+# def toehold_covering_matching(self, gate):
+#     for d_s in re.finditer(re_double, gate):
+#         cover_pos = re.search(re_cover_end, gate)
+#         if cover_pos is not None:
+#             th_pos = gate[cover_pos.end() + 1:].find(cover_pos.group() + "^*")
+#             print(th_pos, "lower label")
+#             updated_gate = format_sequence(gate[:d_s.end() - 1] + " " + cover_pos.group() + "]<" + gate[cover_pos.end() + 1:cover_pos.end() + 1 + th_pos] + gate[cover_pos.end() + th_pos + 4:])
+#             print("updated_gate", updated_gate)
+#         return (cover_pos)
+
+# def toehold_covering_matching(self, gate):
+#     for d_s in re.finditer(re_double, gate):
+#         cover_pos = re.search(re_cover_end, gate)
+#         if cover_pos is not None:
+#             th_pos = gate[cover_pos.end() + 1:].find(cover_pos.group() + "^*")
+#             print(th_pos, "lower label")
+#             updated_gate = format_sequence(gate[:d_s.end() - 1] + " " + cover_pos.group() + "]<" + gate[cover_pos.end() + 1:cover_pos.end() + 1 + th_pos] + gate[cover_pos.end() + th_pos + 4:])
+#             print("updated_gate", updated_gate)
+#         return (cover_pos)
