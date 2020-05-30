@@ -33,43 +33,95 @@ import re
 alpha = 1.e-10
 beta = 1000 ** -2
 
-re_double = re.compile('(?:\[.*?\])')  # Matches on any double strand (includes brackets).
-re_upper = re.compile('(?:\<.*?\>)')  # Matches on any upper strand (includes brackets).
-re_lower = re.compile('(?:\{.*?\})')  # Matches on any lower strand (includes the brackets).
+re_double = re.compile(r'(?:\[.*?\])')  # Matches on any double strand (includes brackets).
+re_upper = re.compile(r'(<[^<\[\{]*?\>)')  # Matches on any upper strand (includes the brackets).
+re_lower = re.compile(r'({[^<\[\{]*?\})')
+#re_lower = re.compile(r'(?:\{.*?\})')  # Matches on any lower strand (includes the brackets).
 
-re_short_double_th = re.compile('(?:\[\W*?(\w)(?:\^\W*?\]))')  # Matches on double toeholds of the form [A^] not [A^ B]
-re_double_lab = re.compile('(\w)(?=\^)(?=[^<>{}]*])')  # Returns the label of a double toehold regex.
-re_upper_lab = re.compile('(\w)(?=\^)(?=[^<>]*>)')  # Returns the labels of upper toeholds.
-re_lower_lab = re.compile('(\w)(?=\^\*)(?=[^{}]*})')  # Returns labels of lower toeholds
+re_short_double_th = re.compile(r'(?:\[\W*?(\w)(?:\^\W*?\]))')  # Matches on double toeholds of the form [A^] not [A^ B]
+re_double_lab = re.compile(r'(\w)(?=\^)(?=[^<>{}]*])')  # Returns the label of a double toehold regex.
+re_upper_lab = re.compile(r'(\w)(?=\^)(?=[^<>]*>)')  # Returns the labels of upper toeholds.
+re_lower_lab = re.compile(r'(\w)(?=\^\*)(?=[^{}]*})')  # Returns labels of lower toeholds
 
-re_opening = re.compile('[\[{]*?(<)|[\[<]*?({)|[<{]*?(])')  # Matches on open brackets [, { and <
-re_closing = re.compile('[\]}]*?(>)|[\]>]*?(})|[>}]*?(])')  # Matches on close brackets ], } and >
+re_opening = re.compile(r'<|\[|{')  # Matches on open brackets [, { and <
+#re_opening = re.compile(r'[\[{]*?(<)|[\[<]*?({)|[<{]*?(])')  # Matches on open brackets [, { and <
+re_closing = re.compile(r'(>|\]|})') # Matches on close brackets ], } and >
+#re_closing = re.compile(r'[\]}]*?(>)|[\]>]*?(})|[>}]*?(])')  # Matches on close brackets ], } and >
 
-re_empty = re.compile('(<(?:\s)*>)|({(?:\s)*})|\{\*\}')  # Matches on empty brackets like <>, {} and [ ].
-re_spaces = re.compile(
-    '(?<=\<)(\s+)|(?<=\{)(\s+)|(?<=\[)(\s+)|(\s)+(?=\>)|(\s)+(?=\])|(\s)+(?=\})')  # Matches on spaces at start or end of parts.
+re_empty = re.compile(r'(<(?:\s)*>)|({(?:\s)*})|(\[(?:\s)*])')  # Matches on empty brackets like <>, {} and [ ].
+re_large_spaces = re.compile(r'(\s{2,})')  # Matches on spaces of length > 1
+re_spaces = re.compile('(?<=(?:\:|\>|\}|\]|\<|\{|\[))(\s+)|(\s+)(?=(?:\:|\>|\]|\}))')
 
 re_gate = re.compile(
     f"({re_lower.pattern})?({re_upper.pattern})?({re_double.pattern})({re_upper.pattern})?({re_lower.pattern})?")  # Matches on gates
-re_strand = re.compile(fr"({re_lower.pattern})|({re_upper.pattern})")  # Matches on strands
-re_pre_cover = re.compile(
-    r'(\w)(?=\^\*\s*\}\s*\<.*\1\^\s*\>)')  # Identifies where the Covering rule can be applied on a gate, before the d_s
-re_post_cover = re.compile(
-    r'(?<=\<)\s*?(\w)(?=\^.*>\s*\{\s*\1\^\*)')  # Identifies where the Covering rule can be applied on a gate, after the d_s
+
+re_upper_g_1 = re.compile(f"^({re_upper.pattern})::|(?<=\:\:)({re_upper.pattern})::")
+re_upper_g_2 = re.compile(f"(::)({re_upper.pattern})$")
+re_lower_g_1 = re.compile(f"^({re_lower.pattern}):(?=[^:])|(?<=[^:]:)({re_lower.pattern}):(?=[^:])")
+re_lower_g_2 = re.compile(f"(?<=[^:]):({re_lower.pattern})$")
+re_upper_oh = re.compile(f"({re_double.pattern})({re_upper.pattern})(:)({re_upper.pattern})({re_double.pattern})?")
+re_pre_cover = re.compile(r'(\w)(?=\^\*\s*\}\s*\<.*\1\^\s*\>)')  # Identifies where the Covering rule can be applied on a gate, before the d_s
+re_post_cover = re.compile(r'(?<=\<)\s*?(\w)(?=\^.*>\s*\{\s*\1\^\*)')  # Identifies where the Covering rule can be applied on a gate, after the d_s
 
 
 def find_sub_sequence(regex, seq):
     """Takes a regex and a sub sequence, and either returns the regex match (without the first and last chars) or a blank string '' """
-    seq = re.search(regex, seq).group()
+    seq = re.search(regex, seq)
     if seq is not None:
-        return seq[1:len(seq) - 1]
+        return seq.group()[1:len(seq.group()) - 1]
     return ""
 
 
-def format_sequence(seq):
+def format_seq(seq):
     """Remove unnecessary whitespaces and empty brackets"""
+    seq = re.sub(re_large_spaces, " ", seq)
     seq = re.sub(re_spaces, '', seq)
-    return re.sub(re_empty, '', seq)
+    seq = re.sub(re_empty, '', seq)
+    return standardise(seq)
+
+
+def standardise(seq):
+    """Identifies gates which only contain a single upper or lower strand, and adds this strand to an adjacent gate, with
+    the following gate taking priority over the previous gate"""
+    upper_g_1 = re.search(re_upper_g_1, seq)
+    upper_g_2 = re.search(re_upper_g_2, seq)
+    lower_g_1 = re.search(re_lower_g_1, seq)
+    lower_g_2 = re.search(re_lower_g_2, seq)
+
+    if upper_g_1 is not None:
+        pos = seq[upper_g_1.end():].find('<')
+        pos_2 = seq[upper_g_1.end():].find('[')
+        if pos != -1 and pos < pos_2:
+            upper = find_sub_sequence(re_upper, upper_g_1.group()) + " "
+            return standardise(seq[:upper_g_1.start()] + seq[upper_g_1.end():upper_g_1.end() + pos + 1] + upper + seq[upper_g_1.end() + pos + 1:])
+        elif pos_2 != -1:
+            return standardise(seq[:upper_g_1.end()-2] + seq[upper_g_1.end():] )
+    elif upper_g_2 is not None:
+        pos = seq[:upper_g_2.start()].rfind('>')
+        pos_2 = seq[:upper_g_2.start()].rfind(']')
+        if pos != -1 and pos > pos_2:
+            upper = " " + find_sub_sequence(re_upper, upper_g_2.group())
+            return standardise(seq[:pos] + upper + seq[pos:upper_g_2.start()])
+        elif pos_2 != -1 and pos_2 > pos:
+            return standardise(seq[:pos_2+1]+upper_g_2.group()[2:]+seq[pos_2+1:upper_g_2.start()])
+    elif lower_g_1 is not None:
+        pos = seq[lower_g_1.end():].find('{')
+        pos_2 = seq[lower_g_1.end():].find('[')
+        if pos != -1 and pos < pos_2:
+            lower = find_sub_sequence(re_lower, lower_g_1.group()) + " "
+            return standardise(seq[:lower_g_1.start()] + seq[lower_g_1.end():lower_g_1.end() + pos + 1] + lower + seq[lower_g_1.end() + pos + 1:])
+        elif pos_2 != -1:
+            return standardise(seq[:lower_g_1.end()-1] + seq[lower_g_1.end():])
+    elif lower_g_2 is not None:
+        pos = seq[:lower_g_2.start()].rfind('}')
+        pos_2 = seq[:lower_g_2.start()].rfind(']')
+        if pos != -1 and pos > pos_2:
+            lower = " " + find_sub_sequence(re_lower, lower_g_2.group())
+            return standardise(seq[:pos] + lower + seq[pos:lower_g_2.start()])
+        elif pos_2 != -1 and pos_2 > pos:
+            return standardise(seq[:lower_g_2.start()] + seq[lower_g_2.start()+1:])
+    else:
+        return seq
 
 
 class BindingRule(stocal.TransitionRule):
@@ -88,16 +140,18 @@ class BindingRule(stocal.TransitionRule):
             for match_2 in re.finditer(regex_2, l):
                 if match_1.group() == match_2.group():
                     if regex_1 == re_upper_lab:
-                        part_a = k[:match_1.start()] + re.search(re_closing, k[match_1.start():]).group() + l[:match_2.start()] + \
+                        part_a = k[:match_1.start()] + re.search(re_closing, k[match_1.start():]).group() + l[
+                                                                                                            :match_2.start()] + \
                                  re.search(re_closing, l[match_2.start():]).group()
                         part_b = re.search(re_opening, l[:match_2.end()]).group() + l[match_2.end() + 2:] + \
                                  re.search(re_opening, k[:match_1.end() + 1]).group() + k[match_1.end() + 1:]
                     else:
-                        part_a = k[:match_1.start()] + re.search(re_closing, k[match_1.start():]).group() + l[:match_2.start()] + \
+                        part_a = k[:match_1.start()] + re.search(re_closing, k[match_1.start():]).group() + l[
+                                                                                                            :match_2.start()] + \
                                  re.search(re_closing, l[match_2.start():]).group()
                         part_b = re.search(re_opening, l[:match_2.end()]).group() + l[match_2.end() + 1:] + \
                                  re.search(re_opening, k[:match_1.end() + 1]).group() + k[match_1.end() + 2:]
-                    final_strand = format_sequence(part_a + "[" + match_2.group() + "^]" + part_b)
+                    final_strand = format_seq(part_a + "[" + match_2.group() + "^]" + part_b)
                     print("final", final_strand)
                     yield self.Transition([k, l], [final_strand], alpha)
 
@@ -106,75 +160,57 @@ class UnbindingRule(stocal.TransitionRule):
     """Splits two strings when a toehold unbinds"""
     Transition = stocal.MassAction
 
-    # TODO: Does this rule still work when toeholds are involved?
     def novel_reactions(self, kl):
         yield from self.toehold_unbinding(kl)
 
     def toehold_unbinding(self, kl):
-        kl = format_sequence(kl)
-        for double_th in re.finditer(re_short_double_th, kl):
-            print("kl:", kl)
-            label = re.search(re_double_lab,
-                              double_th.group()).group()  # Retrieve the label of the toehold we are unbinding
-            prefix, suffix = "", ""
-            bracket_open = kl[:double_th.start()].rfind(']')  # Possibly modify this to be min(.rfind(']'),.rfind(':') for overhangs
-            bracket_close = kl[double_th.end():].find('[')  # Possibly modify this to be max(.rfind('['),.rfind(':') for overhangs
-            if bracket_open != -1:
-                prefix = kl[:bracket_open + 1]
-            else:
-                bracket_open = 0
-            if bracket_close != -1:
-                suffix = kl[double_th.end() + bracket_close:]
-            else:
-                bracket_close = len(kl)
+        kl = format_seq(kl)
+        print("kl", kl)
+        for gate in re.finditer(re_gate, kl):
+            d_s = re.search(re_short_double_th, gate.group())
+            if d_s is not None:
+                label = re.search(re_double_lab, d_s.group()).group()
+                upper_1 = find_sub_sequence(re_upper, gate.group()[:d_s.start()])
+                lower_1 = find_sub_sequence(re_lower, gate.group()[:d_s.start()])
+                upper_2 = find_sub_sequence(re_upper, gate.group()[d_s.end():])
+                lower_2 = find_sub_sequence(re_lower, gate.group()[d_s.end():])
+                part_a = "<" + upper_1 + " " + label + "^ " + upper_2 + ">"
+                part_b = "{" + lower_1 + " " + label + "^* " + lower_2 + "}"
 
-            # Find the upper strands before and after the double toehold. Likewise with lower strands.
-            upper_1 = find_sub_sequence(re_upper, kl[bracket_open:double_th.start()])
-            lower_1 = find_sub_sequence(re_lower, kl[bracket_open:double_th.start()])
-            upper_2 = find_sub_sequence(re_upper, kl[double_th.end():double_th.end() + bracket_close])
-            lower_2 = find_sub_sequence(re_lower, kl[double_th.end():double_th.end() + bracket_close])
+                if gate.start() > 0:
+                    if kl[gate.start() - 2:gate.start()] == "::":
+                        part_a = kl[:gate.start()] + part_a
+                    else:
+                        part_b = kl[:gate.start()] + part_b
+                if gate.end() < len(kl):
+                    if kl[gate.end():gate.end() + 2] == "::":
+                        part_a = part_a + kl[gate.end():]
+                    else:
+                        part_b = part_b + kl[gate.end():]
 
-            part_a = "<" + upper_1 + " " + label + "^ " + upper_2 + ">"
-            part_b = "{" + lower_1 + " " + label + "^* " + lower_2 + "}"
-
-            # Attach the prefix and/or suffix to the correct strand (upper or lower):
-            if upper_1 == "":
-                if upper_2 == "":
-                    part_b = prefix + part_b + suffix
-                else:
-                    part_a = part_a + suffix
-                    part_b = prefix + part_b
-            else:
-                if upper_2 == "":
-                    part_a = prefix + part_a
-                    part_b = part_b + suffix
-                else:
-                    part_a = prefix + part_a + suffix
-
-            print("Final A:    ", format_sequence(part_a))
-            print("Final B:    ", format_sequence(part_b))
-            yield self.Transition([kl], [format_sequence(part_a), format_sequence(part_b)], alpha)
+                print("FINAL A:", format_seq(part_a), "FINAL B:", format_seq(part_b))
+                yield self.Transition([kl], [format_seq(part_a), format_seq(part_b)], alpha)
 
 
 class CoveringRule(stocal.TransitionRule):
     """Splits two strings when a toehold unbinds"""
     Transition = stocal.MassAction
 
-    # TODO: Does this rule still work when toeholds are involved?
     def novel_reactions(self, k):
         yield from self.toehold_covering(k)
 
     def toehold_covering(self, k):
-        k = format_sequence(k)
+        k = format_seq(k)
         for gate in re.finditer(re_gate, k):
             d_s = re.search(re_double, gate.group())
             pre_cover = re.search(re_pre_cover, gate.group())
             post_cover = re.search(re_post_cover, gate.group())
             if pre_cover is not None:
                 th_pos = gate.group()[pre_cover.start() + 2: d_s.start()].find(pre_cover.group() + "^")
-                updated_gate = gate.group()[:pre_cover.start()] + gate.group()[pre_cover.end() + 2: pre_cover.end() + th_pos] + \
+                updated_gate = gate.group()[:pre_cover.start()] + gate.group()[
+                                                                  pre_cover.end() + 2: pre_cover.end() + th_pos] + \
                                ">[" + pre_cover.group() + "^ " + gate.group()[d_s.start() + 1:]
-                updated_seq = k[:gate.start()] + format_sequence(updated_gate) + k[gate.end():]
+                updated_seq = k[:gate.start()] + format_seq(updated_gate) + k[gate.end():]
                 print(updated_seq, "updated seq")
                 yield self.Transition([k], [updated_seq], alpha)
             if post_cover is not None:
@@ -182,14 +218,27 @@ class CoveringRule(stocal.TransitionRule):
                 updated_gate = gate.group()[:d_s.end() - 1] + " " + post_cover.group() + "]<" + \
                                gate.group()[post_cover.end() + 1: post_cover.end() + th_c_pos + 1] + \
                                gate.group()[post_cover.end() + th_c_pos + 4:]
-                updated_seq = k[:gate.start()] + format_sequence(updated_gate) + k[gate.end():]
+                updated_seq = k[:gate.start()] + format_seq(updated_gate) + k[gate.end():]
                 print(updated_seq, "updated seq")
                 yield self.Transition([k], [updated_seq], alpha)
 
 
+class MigrationRule(stocal.TransitionRule):
+    """Splits two strings when a toehold unbinds"""
+    Transition = stocal.MassAction
+
+    def novel_reactions(self, k):
+        yield from self.branch_migration(k)
+
+    def branch_migration(self, k):
+        print(k)
+        x = re.search(re_upper_oh, k)
+        print(x)
+        yield self.Transition([k], [x], alpha)
+
+
 process = stocal.Process(
-    rules=[CoveringRule()]
-    # rules=[UnbindingRule()]
+    rules=[UnbindingRule()]
 )
 
 if __name__ == '__main__':
@@ -197,9 +246,15 @@ if __name__ == '__main__':
     # initial_state = {"{ N^* L' R'}": 60, "<L N^ M N^>": 50}
     # initial_state = {"{N^* S' N^*}[C^]": 60, "<N^ M N^>": 50, "{L'}<L>[N^]<R>[M^]<S'>[A^]{B}" : 50}
     # initial_state = {"<A>{B}[D^]<C^ F>{C^* G}": 60}
-    initial_state = {"{A L^*}<B L^>[N^]<   R^>{B^*}:{L'}<L>[N^]<  F^>{B^*}": 500}
+    # initial_state = {"{A}   [C^]  <D>  {E}  :{F}<G>[H^]<I>{J}::{K}<L>[M^]<N>{O}": 500}
+    initial_state = {"{A}<B>[C^]::{F}<G>[H^]<I>{J}::{K}<L>[M^]<N>{O}": 500}
+    # initial_state = {"{L'}<L>[S1]<S R2>:<L1>[S S2]<R>{R'}":500}
     # TODO:  re.fullmatch() does not work as I thought it did, so error checking needs to be updated so as to make sure every <, { and [ has a corresponding >, }, ].
 
+    x = '{B C^ D}:{F}<G>[H^ I J]<A>:{B C^ D}'
+    y = '<B C^ D>::{F}<G>[H^]<I>{J}:{B C^ D}:[M^]<N>{O}'
+    print("x:", x)
+    print(standardise(x))
     traj = process.sample(initial_state, tmax=100.)
     for _ in traj:
         print(traj.time, traj.state)
@@ -242,6 +297,7 @@ if __name__ == '__main__':
 # last_upper_th = re.compile('<([^>]*)>*(?!(?:.*<|.*\[))')
 # last_upper_th = re.compile('<([^>]*)>')
 # last_lower_th = re.compile('{([^}]*)}')
+# re_upper = re.compile('(?:\<.*?\>)')  # Matches on any upper strand (includes brackets).
 # last_lower_th = re.compile('({[^}]*)}*(?!(?:.*{|.*\[))')
 # re_upper_lab_start = re.compile('((?<=\<)\s*?(\w)\^)')
 # re_lower_lab_start = re.compile('((?<=\{)\s*?(\w)\^)')
@@ -249,6 +305,7 @@ if __name__ == '__main__':
 # re_lower_lab_end = re.compile('(\w)\^\*(?=\s*\})')
 # re_spaces_end = re.compile('(?<=\S)(\s)+?(?=\>)|(?<=\S)(\s)+?(?=\])|(?<=\S)(\s)+?(?=\})')  # Matches on spaces before bracket closes
 # re_spaces_start = re.compile('(?<=\<)(\s+?)(?=\w)|(?<=\{)(\s+?)(?=\w)|(?<=\[)(\s+?)(?=\w)')  # Matches on spaces between brackets and words, like < A or { B
+# re_spaces = re.compile('(?<=\<)(\s+)|(?<=\{)(\s+)|(?<=\[)(\s+)|(\s)+(?=\>)|(\s)+(?=\])|(\s)+(?=\})')  # Matches on spaces at start or end of parts.
 
 # Predecessor to find_sequence function. Can be deleted once testing shows the unbinding function works.
 # if re.search(upper_sequence, kl[bracket_open:double_th.start()]) is not None:
@@ -335,3 +392,48 @@ if __name__ == '__main__':
 #             updated_gate = format_sequence(gate[:d_s.end() - 1] + " " + cover_pos.group() + "]<" + gate[cover_pos.end() + 1:cover_pos.end() + 1 + th_pos] + gate[cover_pos.end() + th_pos + 4:])
 #             print("updated_gate", updated_gate)
 #         return (cover_pos)
+
+# def toehold_unbinding(self, kl):
+#     kl = format_sequence(kl)
+#     for double_th in re.finditer(re_short_double_th, kl):
+#         print("kl:", kl)
+#         label = re.search(re_double_lab,
+#                           double_th.group()).group()  # Retrieve the label of the toehold we are unbinding
+#         prefix, suffix = "", ""
+#         bracket_open = kl[:double_th.start()].rfind(']')  # Possibly modify this to be min(.rfind(']'),.rfind(':') for overhangs
+#         bracket_close = kl[double_th.end():].find('[')  # Possibly modify this to be max(.rfind('['),.rfind(':') for overhangs
+#         if bracket_open != -1:
+#             prefix = kl[:bracket_open + 1]
+#         else:
+#             bracket_open = 0
+#         if bracket_close != -1:
+#             suffix = kl[double_th.end() + bracket_close:]
+#         else:
+#             bracket_close = len(kl)
+#
+#         # Find the upper strands before and after the double toehold. Likewise with lower strands.
+#         upper_1 = find_sub_sequence(re_upper, kl[bracket_open:double_th.start()])
+#         lower_1 = find_sub_sequence(re_lower, kl[bracket_open:double_th.start()])
+#         upper_2 = find_sub_sequence(re_upper, kl[double_th.end():double_th.end() + bracket_close])
+#         lower_2 = find_sub_sequence(re_lower, kl[double_th.end():double_th.end() + bracket_close])
+#
+#         part_a = "<" + upper_1 + " " + label + "^ " + upper_2 + ">"
+#         part_b = "{" + lower_1 + " " + label + "^* " + lower_2 + "}"
+#
+#         # Attach the prefix and/or suffix to the correct strand (upper or lower):
+#         if upper_1 == "":
+#             if upper_2 == "":
+#                 part_b = prefix + part_b + suffix
+#             else:
+#                 part_a = part_a + suffix
+#                 part_b = prefix + part_b
+#         else:
+#             if upper_2 == "":
+#                 part_a = prefix + part_a
+#                 part_b = part_b + suffix
+#             else:
+#                 part_a = prefix + part_a + suffix
+#
+#         print("Final A:    ", format_sequence(part_a))
+#         print("Final B:    ", format_sequence(part_b))
+#         yield self.Transition([kl], [format_sequence(part_a), format_sequence(part_b)], alpha)
