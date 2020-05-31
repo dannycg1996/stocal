@@ -30,41 +30,35 @@ amount of time.
 import stocal
 import re
 
-alpha = 1.e-10
+alpha = 1.e-1
 beta = 1000 ** -2
 
-re_double = re.compile(r'(?:\[[^<{\[\]}>]*?\])')
-#re_double = re.compile(r'(?:\[.*?\])')  # Matches on any double strand (includes brackets).
+re_double = re.compile(r'(?:\[[^<{\[\]}>]*?\])') # Matches on any double strand (includes brackets).
 re_upper = re.compile(r'(<[^<\[\{]*?\>)')  # Matches on any upper strand (includes the brackets).
-re_lower = re.compile(r'({[^<\[\{]*?\})')
-#re_lower = re.compile(r'(?:\{.*?\})')  # Matches on any lower strand (includes the brackets).
-
+re_lower = re.compile(r'({[^<\[\{]*?\})') # Matches on any lower strand (includes the brackets).
 re_short_double_th = re.compile(r'(?:\[\W*?(\w)(?:\^\W*?\]))')  # Matches on double toeholds of the form [A^] not [A^ B]
+re_gate = re.compile(
+    f"({re_lower.pattern})?({re_upper.pattern})?({re_double.pattern})({re_upper.pattern})?({re_lower.pattern})?")  # Matches on gates
+
 re_double_lab = re.compile(r'(\w)(?=\^)(?=[^<>{}]*])')  # Returns the label of a double toehold regex.
 re_upper_lab = re.compile(r'(\w)(?=\^)(?=[^<>]*>)')  # Returns the labels of upper toeholds.
 re_lower_lab = re.compile(r'(\w)(?=\^\*)(?=[^{}]*})')  # Returns labels of lower toeholds
 
 re_opening = re.compile(r'<|\[|{')  # Matches on open brackets [, { and <
-#re_opening = re.compile(r'[\[{]*?(<)|[\[<]*?({)|[<{]*?(])')  # Matches on open brackets [, { and <
 re_closing = re.compile(r'(>|\]|})') # Matches on close brackets ], } and >
-#re_closing = re.compile(r'[\]}]*?(>)|[\]>]*?(})|[>}]*?(])')  # Matches on close brackets ], } and >
 
 re_empty = re.compile(r'(<(?:\s)*>)|({(?:\s)*})|(\[(?:\s)*])')  # Matches on empty brackets like <>, {} and [ ].
 re_large_spaces = re.compile(r'(\s{2,})')  # Matches on spaces of length > 1
-re_spaces = re.compile('(?<=(?:\:|\>|\}|\]|\<|\{|\[))(\s+)|(\s+)(?=(?:\:|\>|\]|\}))')
-
-re_gate = re.compile(
-    f"({re_lower.pattern})?({re_upper.pattern})?({re_double.pattern})({re_upper.pattern})?({re_lower.pattern})?")  # Matches on gates
-
+re_spaces = re.compile(r'(?<=[:>}\]<{\[])(\s+)|(\s+)(?=[:>\]}])') # Matches on unneccessary spaces.
 re_upper_g_1 = re.compile(f"^({re_upper.pattern})::|(?<=\:\:)({re_upper.pattern})::")
 re_upper_g_2 = re.compile(f"(::)({re_upper.pattern})$")
 re_lower_g_1 = re.compile(f"^({re_lower.pattern}):(?=[^:])|(?<=[^:]:)({re_lower.pattern}):(?=[^:])")
 re_lower_g_2 = re.compile(f"(?<=[^:]):({re_lower.pattern})$")
 
-re_migration = re.compile(fr"{re_double.pattern}<(\w+)[^<>:]*?>:{re_upper.pattern}(?:\[(\1)[^<>]*?\w\s*\])")
-re_upper_oh = re.compile(f"({re_double.pattern})({re_upper.pattern})(:)({re_upper.pattern})({re_double.pattern})?")
-re_pre_cover = re.compile(r'([\w\d])(?=\^\*\s*\}\s*\<.*\1\^\s*\>)')  # Identifies where the Covering rule can be applied on a gate, before the d_s
-re_post_cover = re.compile(r'(?<=\<)\s*?(\w)(?=\^.*>\s*\{\s*\1\^\*)')  # Identifies where the Covering rule can be applied on a gate, after the d_s
+re_pre_cover = re.compile(r'(\w+)(?=\^\*\s*\}\s*\<.*\1\^\s*\>)')  # Identifies where the Covering rule can be applied on a gate, before the d_s
+re_post_cover = re.compile(r'(?<=\<)\s*?(\w+)(?=\^.*>\s*\{\s*\1\^\*)')  # Identifies where the Covering rule can be applied on a gate, after the d_s
+re_upper_migrate = re.compile(fr"{re_double.pattern}<(\w+)[^<>:]*?>:{re_upper.pattern}(?:\[(\1)[^<>]*?\w\s*\])")
+re_upper_migrate_rev = re.compile(fr"(?:\[\w[^<>]*?(\w+)\s*\]){re_upper.pattern}:<[^<>:]*?\1\s*>{re_double.pattern}")
 
 
 def find_sub_sequence(regex, seq):
@@ -139,29 +133,30 @@ class BindingRule(stocal.TransitionRule):
         yield from self.toehold_binding(k, l, re_lower_lab, re_upper_lab)
 
     def toehold_binding(self, k, l, regex_1, regex_2):
+        #print("Binding:", k, l)
         for match_1 in re.finditer(regex_1, k):
             for match_2 in re.finditer(regex_2, l):
                 if match_1.group() == match_2.group():
                     if regex_1 == re_upper_lab:
-                        print("WADDUP")
+                        #print("WADDUP")
                         part_a = k[:match_1.start()] + re.search(re_closing, k[match_1.start():]).group() + l[
                                                                                                             :match_2.start()] + \
                                  re.search(re_closing, l[match_2.start():]).group()
                         part_b = re.search(re_opening, l[:match_2.end()]).group() + l[match_2.end() + 2:] + \
                                  re.search(re_opening, k[:match_1.end() + 1]).group() + k[match_1.end() + 1:]
-                        print("part a", part_a)
-                        print("part b", part_b)
+                        #print("part a", part_a)
+                        #print("part b", part_b)
                     else:
-                        print("WADDUP2")
+                        #print("WADDUP2")
                         part_a = k[:match_1.start()] + re.search(re_closing, k[match_1.start():]).group() + l[
                                                                                                             :match_2.start()] + \
                                  re.search(re_closing, l[match_2.start():]).group()
                         part_b = re.search(re_opening, l[:match_2.end()]).group() + l[match_2.end() + 1:] + \
                                  re.search(re_opening, k[:match_1.end() + 1]).group() + k[match_1.end() + 2:]
-                        print("part a", part_a)
-                        print("part b", part_b)
+                        #print("part a", part_a)
+                        #print("part b", part_b)
                     final_strand = format_seq(part_a + "[" + match_2.group() + "^]" + part_b)
-                    print("final", final_strand)
+                    #print("final", final_strand)
                     yield self.Transition([k, l], [final_strand], alpha)
 
     # def toehold_binding(self, k, l, regex_1, regex_2):
@@ -197,11 +192,12 @@ class UnbindingRule(stocal.TransitionRule):
     Transition = stocal.MassAction
 
     def novel_reactions(self, kl):
+        #print("Unbinding", kl)
         yield from self.toehold_unbinding(kl)
 
     def toehold_unbinding(self, kl):
         kl = format_seq(kl)
-        print("kl", kl)
+        #print("kl", kl)
         for gate in re.finditer(re_gate, kl):
             d_s = re.search(re_short_double_th, gate.group())
             if d_s is not None:
@@ -224,7 +220,7 @@ class UnbindingRule(stocal.TransitionRule):
                     else:
                         part_b = part_b + kl[gate.end():]
 
-                print("FINAL A:", format_seq(part_a), "FINAL B:", format_seq(part_b))
+                #print("FINAL A:", format_seq(part_a), "FINAL B:", format_seq(part_b))
                 yield self.Transition([kl], [format_seq(part_a), format_seq(part_b)], alpha)
 
 
@@ -247,7 +243,7 @@ class CoveringRule(stocal.TransitionRule):
                                                                   pre_cover.end() + 2: pre_cover.end() + th_pos] + \
                                ">[" + pre_cover.group() + "^ " + gate.group()[d_s.start() + 1:]
                 updated_seq = k[:gate.start()] + format_seq(updated_gate) + k[gate.end():]
-                print(updated_seq, "updated seq")
+                #print(updated_seq, "updated seq")
                 yield self.Transition([k], [updated_seq], alpha)
             if post_cover is not None:
                 th_c_pos = gate.group()[post_cover.end() + 1:].find(post_cover.group() + "^*")
@@ -255,7 +251,7 @@ class CoveringRule(stocal.TransitionRule):
                                gate.group()[post_cover.end() + 1: post_cover.end() + th_c_pos + 1] + \
                                gate.group()[post_cover.end() + th_c_pos + 4:]
                 updated_seq = k[:gate.start()] + format_seq(updated_gate) + k[gate.end():]
-                print(updated_seq, "updated seq")
+                #print(updated_seq, "updated seq")
                 yield self.Transition([k], [updated_seq], alpha)
 
 
@@ -264,13 +260,12 @@ class MigrationRule(stocal.TransitionRule):
     Transition = stocal.MassAction
 
     def novel_reactions(self, k):
-        yield from self.branch_migration(k)
+        yield from self.b_migration_upper(k)
 
-    def branch_migration(self, k):
+    def b_migration_upper(self, k):
         k = format_seq(k)
-        print("K:  ", k)
-        for match in re.finditer(re_migration, k):
-            print(match.group(1), "match group 1")
+        #print("K:  ", k)
+        for match in re.finditer(re_upper_migrate, k):
             mid_point = match.group().find(':')
             upper_1 = find_sub_sequence(re_upper, match.group())
             d_s_2 = find_sub_sequence(re_double, match.group()[mid_point:])
@@ -282,12 +277,12 @@ class MigrationRule(stocal.TransitionRule):
             upper_2 = "<" + find_sub_sequence(re_upper, match.group()[mid_point:]) + " " + match.group(1) + ">"
             d_s_2 = "[" + d_s_2[pos_2:] + "]"
             seq = format_seq(k[:match.start()] + d_s_1 + upper_1 + ":" + upper_2 + d_s_2 + k[match.end():])
-            print("seq", seq)
+            #print("seq", seq)
             yield self.Transition([k], [seq], alpha)
 
 
 process = stocal.Process(
-    rules=[MigrationRule()]
+    rules=[BindingRule(), UnbindingRule(), MigrationRule()]
 )
 
 if __name__ == '__main__':
@@ -298,13 +293,13 @@ if __name__ == '__main__':
     #initial_state = {"{A}<B>[C^]<D>{E}::{F}<G>[H^]<I>{J}::{K}<L>[M^]<N>{O}": 500}
     #initial_state = {"{F}<B C^ G>[H^]<I>{J}" : 60, "{A C^*}" : 60}
     #initial_state = {"{A C^*}" : 60, "{F}<B C^ G>[H^]<I>{J}" : 60}
-    #initial_state = {"{L' N^* R'}" : 60, "<L N^ R>" : 60}
-    initial_state = {"{L'}<L>[S1]<S R2 R3>:<L1>[S R2 S2]<R>{R'}" : 60}
+    #initial_state = {"{L' N^* R'}" : 10000, "<L N^ R>" : 10000}
+    initial_state = {"{L'}<L>[S1]<S R2 R3>:<L1>[S R2 S2]<R>{R'}" : 6000000}
 #    initial_state = {"{L'}<L>[S1 S]<R2 R3>:<L1 S>[R2 S2]<R>{R'}" : 60}
     # TODO:  re.fullmatch() does not work as I thought it did, so error checking needs to be updated so as to make sure every <, { and [ has a corresponding >, }, ].
 
 
-    traj = process.sample(initial_state, tmax=100.)
+    traj = process.sample(initial_state, tmax=100000.)
     for _ in traj:
         print(traj.time, traj.state)
 
@@ -320,6 +315,7 @@ if __name__ == '__main__':
 #     yield from self.toehold_binding(k, l, upper_th_c, lower_th)
 
 # re_gate = re.compile('(.{2,}?(?=\:))|(\:)(?!.*\:)(.*)')
+#re_double = re.compile(r'(?:\[.*?\])')  # Matches on any double strand (includes brackets).
 
 # Original toehold_binding function
 # def toehold_binding(self, k, l, regex_1, regex_2):
@@ -384,7 +380,7 @@ if __name__ == '__main__':
 #         if upper_th.group() == lower_thc.group():
 #             print(gate[:seq.start()], "gate[:seq.start()]")
 #             print("PRE BIND", gate)
-
+#re_lower = re.compile(r'(?:\{.*?\})')  # Matches on any lower strand (includes the brackets).
 
 # for match_1 in re.finditer(regex_1, k):
 #     for match_2 in re.finditer(regex_2, l):
@@ -486,3 +482,6 @@ if __name__ == '__main__':
 #         print("Final A:    ", format_sequence(part_a))
 #         print("Final B:    ", format_sequence(part_b))
 #         yield self.Transition([kl], [format_sequence(part_a), format_sequence(part_b)], alpha)
+
+#re_opening = re.compile(r'[\[{]*?(<)|[\[<]*?({)|[<{]*?(])')  # Matches on open brackets [, { and <
+#re_closing = re.compile(r'[\]}]*?(>)|[\]>]*?(})|[>}]*?(])')  # Matches on close brackets ], } and >
