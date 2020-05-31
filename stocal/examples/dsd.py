@@ -33,7 +33,8 @@ import re
 alpha = 1.e-10
 beta = 1000 ** -2
 
-re_double = re.compile(r'(?:\[.*?\])')  # Matches on any double strand (includes brackets).
+re_double = re.compile(r'(?:\[[^<{\[\]}>]*?\])')
+#re_double = re.compile(r'(?:\[.*?\])')  # Matches on any double strand (includes brackets).
 re_upper = re.compile(r'(<[^<\[\{]*?\>)')  # Matches on any upper strand (includes the brackets).
 re_lower = re.compile(r'({[^<\[\{]*?\})')
 #re_lower = re.compile(r'(?:\{.*?\})')  # Matches on any lower strand (includes the brackets).
@@ -59,8 +60,10 @@ re_upper_g_1 = re.compile(f"^({re_upper.pattern})::|(?<=\:\:)({re_upper.pattern}
 re_upper_g_2 = re.compile(f"(::)({re_upper.pattern})$")
 re_lower_g_1 = re.compile(f"^({re_lower.pattern}):(?=[^:])|(?<=[^:]:)({re_lower.pattern}):(?=[^:])")
 re_lower_g_2 = re.compile(f"(?<=[^:]):({re_lower.pattern})$")
+
+re_migration = re.compile(fr"{re_double.pattern}<(\w+)[^<>:]*?>:{re_upper.pattern}(?:\[(\1)[^<>]*?\w\s*\])")
 re_upper_oh = re.compile(f"({re_double.pattern})({re_upper.pattern})(:)({re_upper.pattern})({re_double.pattern})?")
-re_pre_cover = re.compile(r'(\w)(?=\^\*\s*\}\s*\<.*\1\^\s*\>)')  # Identifies where the Covering rule can be applied on a gate, before the d_s
+re_pre_cover = re.compile(r'([\w\d])(?=\^\*\s*\}\s*\<.*\1\^\s*\>)')  # Identifies where the Covering rule can be applied on a gate, before the d_s
 re_post_cover = re.compile(r'(?<=\<)\s*?(\w)(?=\^.*>\s*\{\s*\1\^\*)')  # Identifies where the Covering rule can be applied on a gate, after the d_s
 
 
@@ -140,20 +143,53 @@ class BindingRule(stocal.TransitionRule):
             for match_2 in re.finditer(regex_2, l):
                 if match_1.group() == match_2.group():
                     if regex_1 == re_upper_lab:
+                        print("WADDUP")
                         part_a = k[:match_1.start()] + re.search(re_closing, k[match_1.start():]).group() + l[
                                                                                                             :match_2.start()] + \
                                  re.search(re_closing, l[match_2.start():]).group()
                         part_b = re.search(re_opening, l[:match_2.end()]).group() + l[match_2.end() + 2:] + \
                                  re.search(re_opening, k[:match_1.end() + 1]).group() + k[match_1.end() + 1:]
+                        print("part a", part_a)
+                        print("part b", part_b)
                     else:
+                        print("WADDUP2")
                         part_a = k[:match_1.start()] + re.search(re_closing, k[match_1.start():]).group() + l[
                                                                                                             :match_2.start()] + \
                                  re.search(re_closing, l[match_2.start():]).group()
                         part_b = re.search(re_opening, l[:match_2.end()]).group() + l[match_2.end() + 1:] + \
                                  re.search(re_opening, k[:match_1.end() + 1]).group() + k[match_1.end() + 2:]
+                        print("part a", part_a)
+                        print("part b", part_b)
                     final_strand = format_seq(part_a + "[" + match_2.group() + "^]" + part_b)
                     print("final", final_strand)
                     yield self.Transition([k, l], [final_strand], alpha)
+
+    # def toehold_binding(self, k, l, regex_1, regex_2):
+    #     print("k:", k, "l", l)
+    #     for match_1 in re.finditer(regex_1, k):
+    #         for match_2 in re.finditer(regex_2, l):
+    #             if match_1.group() == match_2.group():
+    #                 if regex_1 == re_upper_lab:
+    #                     print("WADDUP")
+    #                     part_a = k[:match_1.start()] + re.search(re_closing, k[match_1.start():]).group() + l[
+    #                                                                                                         :match_2.start()] + \
+    #                              re.search(re_closing, l[match_2.start():]).group()
+    #                     part_b = re.search(re_opening, l[:match_2.end()]).group() + l[match_2.end() + 2:] + \
+    #                              re.search(re_opening, k[:match_1.end() + 1]).group() + k[match_1.end() + 1:]
+    #                     print("part a", part_a)
+    #                     print("part b", part_b)
+    #                 else:
+    #                     print("WADDUP2")
+    #                     part_a = k[:match_1.start()] + re.search(re_closing, k[match_1.start():]).group() + l[
+    #                                                                                                         :match_2.start()] + \
+    #                              re.search(re_closing, l[match_2.start():]).group()
+    #                     part_b = re.search(re_opening, l[:match_2.end()]).group() + l[match_2.end() + 1:] + \
+    #                              re.search(re_opening, k[:match_1.end() + 1]).group() + k[match_1.end() + 2:]
+    #                     print("part a", part_a)
+    #                     print("part b", part_b)
+    #                 final_strand = format_seq(part_a + "[" + match_2.group() + "^]" + part_b)
+    #                 print("final", final_strand)
+    #                 yield self.Transition([k, l], [final_strand], alpha)
 
 
 class UnbindingRule(stocal.TransitionRule):
@@ -231,14 +267,27 @@ class MigrationRule(stocal.TransitionRule):
         yield from self.branch_migration(k)
 
     def branch_migration(self, k):
-        print(k)
-        x = re.search(re_upper_oh, k)
-        print(x)
-        yield self.Transition([k], [x], alpha)
+        k = format_seq(k)
+        print("K:  ", k)
+        for match in re.finditer(re_migration, k):
+            print(match.group(1), "match group 1")
+            mid_point = match.group().find(':')
+            upper_1 = find_sub_sequence(re_upper, match.group())
+            d_s_2 = find_sub_sequence(re_double, match.group()[mid_point:])
+            pos = re.search(match.group(1), upper_1).end()
+            pos_2 = re.search(match.group(1), d_s_2).end()
+            d_s_1 = "[" + find_sub_sequence(re_double, match.group()) + " " + match.group(1) + "]"
+
+            upper_1 = "<" + upper_1[pos:] + ">"
+            upper_2 = "<" + find_sub_sequence(re_upper, match.group()[mid_point:]) + " " + match.group(1) + ">"
+            d_s_2 = "[" + d_s_2[pos_2:] + "]"
+            seq = format_seq(k[:match.start()] + d_s_1 + upper_1 + ":" + upper_2 + d_s_2 + k[match.end():])
+            print("seq", seq)
+            yield self.Transition([k], [seq], alpha)
 
 
 process = stocal.Process(
-    rules=[UnbindingRule()]
+    rules=[MigrationRule()]
 )
 
 if __name__ == '__main__':
@@ -246,15 +295,15 @@ if __name__ == '__main__':
     # initial_state = {"{ N^* L' R'}": 60, "<L N^ M N^>": 50}
     # initial_state = {"{N^* S' N^*}[C^]": 60, "<N^ M N^>": 50, "{L'}<L>[N^]<R>[M^]<S'>[A^]{B}" : 50}
     # initial_state = {"<A>{B}[D^]<C^ F>{C^* G}": 60}
-    # initial_state = {"{A}   [C^]  <D>  {E}  :{F}<G>[H^]<I>{J}::{K}<L>[M^]<N>{O}": 500}
-    initial_state = {"{A}<B>[C^]::{F}<G>[H^]<I>{J}::{K}<L>[M^]<N>{O}": 500}
-    # initial_state = {"{L'}<L>[S1]<S R2>:<L1>[S S2]<R>{R'}":500}
+    #initial_state = {"{A}<B>[C^]<D>{E}::{F}<G>[H^]<I>{J}::{K}<L>[M^]<N>{O}": 500}
+    #initial_state = {"{F}<B C^ G>[H^]<I>{J}" : 60, "{A C^*}" : 60}
+    #initial_state = {"{A C^*}" : 60, "{F}<B C^ G>[H^]<I>{J}" : 60}
+    #initial_state = {"{L' N^* R'}" : 60, "<L N^ R>" : 60}
+    initial_state = {"{L'}<L>[S1]<S R2 R3>:<L1>[S R2 S2]<R>{R'}" : 60}
+#    initial_state = {"{L'}<L>[S1 S]<R2 R3>:<L1 S>[R2 S2]<R>{R'}" : 60}
     # TODO:  re.fullmatch() does not work as I thought it did, so error checking needs to be updated so as to make sure every <, { and [ has a corresponding >, }, ].
 
-    x = '{B C^ D}:{F}<G>[H^ I J]<A>:{B C^ D}'
-    y = '<B C^ D>::{F}<G>[H^]<I>{J}:{B C^ D}:[M^]<N>{O}'
-    print("x:", x)
-    print(standardise(x))
+
     traj = process.sample(initial_state, tmax=100.)
     for _ in traj:
         print(traj.time, traj.state)
