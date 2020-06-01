@@ -60,6 +60,7 @@ re_post_cover = re.compile(r'(?<=\<)\s*?(\w+)(?=\^.*>\s*\{\s*\1\^\*)')  # Identi
 re_upper_migrate = re.compile(fr"{re_double.pattern}<(\w+)[^<>:]*?>:{re_upper.pattern}(?:\[(\1)[^<>]*?\w\s*\])")
 re_lower_migrate = re.compile(fr"{re_double.pattern}{{(\w+)[^<>:]*?\}}::{re_lower.pattern}(?:\[(\1)[^<>]*?\w\s*\])")
 re_upper_migrate_rev = re.compile(fr"(?:\[\w[^<>]*?\s(\w+)\s*\]){re_upper.pattern}:<[^<>:]*?\1\s*>{re_double.pattern}")
+re_lower_migrate_rev = re.compile(fr"(?:\[\w[^<>]*?\s(\w+)\s*\]){re_lower.pattern}::{{[^<>:]*?\1\s*}}{re_double.pattern}")
 
 
 def find_sub_sequence(regex, seq):
@@ -236,14 +237,12 @@ class MigrationRule(stocal.TransitionRule):
         k = format_seq(k)
         yield from self.migrate(k, re_lower_migrate, re_lower)
         yield from self.migrate(k, re_upper_migrate, re_upper)
-        #yield from self.migrate_lower(k)
-        #yield from self.migrate_upper(k)
-        #yield from self.migrate_upper_rev(k)
+        yield from self.migrate_rev(k, re_lower_migrate_rev, re_lower)
+        yield from self.migrate_rev(k, re_upper_migrate_rev, re_upper)
 
     def migrate(self, k, regex_1, regex_2):
         print("K:  ", k)
         for match in re.finditer(regex_1, k):
-            print("match low", match)
             mid_point = match.group().find(':')
             strand_1 = find_sub_sequence(regex_2, match.group())
             d_s_2 = find_sub_sequence(re_double, match.group()[mid_point:])
@@ -263,19 +262,27 @@ class MigrationRule(stocal.TransitionRule):
             print("seq", seq)
             yield self.Transition([k], [seq], alpha)
 
-
-    def migrate_upper_rev(self, k):
-        for match in re.finditer(re_upper_migrate_rev, k):
+    def migrate_rev(self, k, regex_1, regex_2):
+        print("Migrate lower reverse")
+        for match in re.finditer(regex_1, k):
+            print(match, "MATCH")
             mid_point = match.group().find(':')
             d_s_1 = find_sub_sequence(re_double, match.group())
             pos = d_s_1.rfind(match.group(1))
             d_s_1 = "[" + d_s_1[:pos] + "]"
-            upper_1 = "<" + match.group(1) + " " + find_sub_sequence(re_upper, match.group()) + ">"
-            upper_2 = find_sub_sequence(re_upper, match.group()[mid_point:])
-            pos_2 = upper_2.rfind(match.group(1))
-            upper_2 = "<" + upper_2[:pos_2] + ">"
             d_s_2 = "[" + match.group(1) + " " + find_sub_sequence(re_double, match.group()[mid_point:]) + "]"
-            seq = format_seq(k[:match.start()] + d_s_1 + upper_1 + ":" + upper_2 + d_s_2 + k[match.end():])
+            strand_2 = find_sub_sequence(regex_2, match.group()[mid_point:])
+            pos_2 = strand_2.rfind(match.group(1))
+            if regex_2 == re_lower:
+                strand_1 = "{" + match.group(1) + " " + find_sub_sequence(regex_2, match.group()) + "}"
+                strand_2 = "{" + strand_2[:pos_2] + "}"
+                bracket = "::"
+            else:
+                strand_1 = "<" + match.group(1) + " " + find_sub_sequence(regex_2, match.group()) + ">"
+                strand_2 = "<" + strand_2[:pos_2] + ">"
+                bracket = ":"
+            seq = format_seq(k[:match.start()] + d_s_1 + strand_1 + bracket + strand_2 + d_s_2 + k[match.end():])
+            print("seq", seq)
             yield self.Transition([k], [seq], alpha)
 
 
@@ -294,7 +301,8 @@ if __name__ == '__main__':
     # initial_state = {"{L' N^* R'}" : 10000, "<L N^ R>" : 10000}
    # initial_state = {"{L'}<L>[S1]<S R2 R3>:<L1>[S R2 S2]<R>{R'}" : 6000000}
    # initial_state = {"{L'}<L>[S1 S]<R2 R3>:<L1 S>[R2 S2]<R>{R'}" : 60}
-    initial_state = {"{L'}<L>[S1]<S R2>:<L1>[S S2]<R>{R'}" : 60}
+   # initial_state = {"{L'}<L>[S1]{S R2}::{L1}[S S2]<R>{R'}" : 60}
+    initial_state = {"{L'}<L>[S1 S]<R2>:<L1 S>[S2]<R>{R'}" : 60}
     # TODO:  re.fullmatch() does not work as I thought it did, so error checking needs to be updated so as to make sure every <, { and [ has a corresponding >, }, ].
 
     traj = process.sample(initial_state, tmax=100000.)
