@@ -30,7 +30,7 @@ amount of time.
 import stocal
 import re
 
-alpha = 1.e-1
+alpha = 1.e-10
 beta = 1000 ** -2
 
 re_double = re.compile(r'(?:\[[^<{\[\]}>]*?\])') # Matches on any double strand (includes brackets).
@@ -58,6 +58,7 @@ re_lower_g_2 = re.compile(f"(?<=[^:]):({re_lower.pattern})$")
 re_pre_cover = re.compile(r'(\w+)(?=\^\*\s*\}\s*\<.*\1\^\s*\>)')  # Identifies where the Covering rule can be applied on a gate, before the d_s
 re_post_cover = re.compile(r'(?<=\<)\s*?(\w+)(?=\^.*>\s*\{\s*\1\^\*)')  # Identifies where the Covering rule can be applied on a gate, after the d_s
 re_upper_migrate = re.compile(fr"{re_double.pattern}<(\w+)[^<>:]*?>:{re_upper.pattern}(?:\[(\1)[^<>]*?\w\s*\])")
+re_lower_migrate = re.compile(fr"{re_double.pattern}{{(\w+)[^<>:]*?\}}::{re_lower.pattern}(?:\[(\1)[^<>]*?\w\s*\])")
 re_upper_migrate_rev = re.compile(fr"(?:\[\w[^<>]*?\s(\w+)\s*\]){re_upper.pattern}:<[^<>:]*?\1\s*>{re_double.pattern}")
 
 
@@ -233,25 +234,35 @@ class MigrationRule(stocal.TransitionRule):
 
     def novel_reactions(self, k):
         k = format_seq(k)
-        yield from self.migrate_upper(k)
-        yield from self.migrate_upper_rev(k)
+        yield from self.migrate(k, re_lower_migrate, re_lower)
+        yield from self.migrate(k, re_upper_migrate, re_upper)
+        #yield from self.migrate_lower(k)
+        #yield from self.migrate_upper(k)
+        #yield from self.migrate_upper_rev(k)
 
-    def migrate_upper(self, k):
-        # print("K:  ", k)
-        for match in re.finditer(re_upper_migrate, k):
+    def migrate(self, k, regex_1, regex_2):
+        print("K:  ", k)
+        for match in re.finditer(regex_1, k):
+            print("match low", match)
             mid_point = match.group().find(':')
-            upper_1 = find_sub_sequence(re_upper, match.group())
+            strand_1 = find_sub_sequence(regex_2, match.group())
             d_s_2 = find_sub_sequence(re_double, match.group()[mid_point:])
-            pos = re.search(match.group(1), upper_1).end()
+            pos = re.search(match.group(1), strand_1).end()
             pos_2 = re.search(match.group(1), d_s_2).end()
             d_s_1 = "[" + find_sub_sequence(re_double, match.group()) + " " + match.group(1) + "]"
-
-            upper_1 = "<" + upper_1[pos:] + ">"
-            upper_2 = "<" + find_sub_sequence(re_upper, match.group()[mid_point:]) + " " + match.group(1) + ">"
             d_s_2 = "[" + d_s_2[pos_2:] + "]"
-            seq = format_seq(k[:match.start()] + d_s_1 + upper_1 + ":" + upper_2 + d_s_2 + k[match.end():])
-            # print("seq", seq)
+            if regex_2 == re_lower:
+                strand_1 = "{" + strand_1[pos:] + "}"
+                strand_2 = "{" + find_sub_sequence(re_lower, match.group()[mid_point:]) + " " + match.group(1) + "}"
+                bracket = "::"
+            else:
+                strand_1 = "<" + strand_1[pos:] + ">"
+                strand_2 = "<" + find_sub_sequence(re_upper, match.group()[mid_point:]) + " " + match.group(1) + ">"
+                bracket = ":"
+            seq = format_seq(k[:match.start()] + d_s_1 + strand_1 + bracket + strand_2 + d_s_2 + k[match.end():])
+            print("seq", seq)
             yield self.Transition([k], [seq], alpha)
+
 
     def migrate_upper_rev(self, k):
         for match in re.finditer(re_upper_migrate_rev, k):
@@ -266,7 +277,6 @@ class MigrationRule(stocal.TransitionRule):
             d_s_2 = "[" + match.group(1) + " " + find_sub_sequence(re_double, match.group()[mid_point:]) + "]"
             seq = format_seq(k[:match.start()] + d_s_1 + upper_1 + ":" + upper_2 + d_s_2 + k[match.end():])
             yield self.Transition([k], [seq], alpha)
-
 
 
 process = stocal.Process(
@@ -284,7 +294,7 @@ if __name__ == '__main__':
     # initial_state = {"{L' N^* R'}" : 10000, "<L N^ R>" : 10000}
    # initial_state = {"{L'}<L>[S1]<S R2 R3>:<L1>[S R2 S2]<R>{R'}" : 6000000}
    # initial_state = {"{L'}<L>[S1 S]<R2 R3>:<L1 S>[R2 S2]<R>{R'}" : 60}
-    initial_state = {"{L'}<L>[S1 S]<R2>:<L1 S>[S2]<R>{R'}" : 60}
+    initial_state = {"{L'}<L>[S1]<S R2>:<L1>[S S2]<R>{R'}" : 60}
     # TODO:  re.fullmatch() does not work as I thought it did, so error checking needs to be updated so as to make sure every <, { and [ has a corresponding >, }, ].
 
     traj = process.sample(initial_state, tmax=100000.)
