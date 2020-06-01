@@ -71,9 +71,9 @@ def find_sub_sequence(regex, seq):
 
 def format_seq(seq):
     """Remove unnecessary whitespaces and empty brackets"""
-    seq = re.sub(re_large_spaces, " ", seq)
-    seq = re.sub(re_spaces, '', seq)
-    seq = re.sub(re_empty, '', seq)
+    seq = re.sub(re_large_spaces, " ", seq)  # Replaces spaces of length 2 or more with single spaces.
+    seq = re.sub(re_spaces, '', seq)  # Remove unnecessary spaces
+    seq = re.sub(re_empty, '', seq)  # Remove empty brackets
     return standardise(seq)
 
 
@@ -133,7 +133,7 @@ class BindingRule(stocal.TransitionRule):
         yield from self.toehold_binding(k, l, re_lower_lab, re_upper_lab)
 
     def toehold_binding(self, k, l, regex_1, regex_2):
-        #print("Binding:", k, l)
+        # print("Binding:", k, l)
         for match_1 in re.finditer(regex_1, k):
             for match_2 in re.finditer(regex_2, l):
                 if match_1.group() == match_2.group():
@@ -144,48 +144,20 @@ class BindingRule(stocal.TransitionRule):
                                  re.search(re_closing, l[match_2.start():]).group()
                         part_b = re.search(re_opening, l[:match_2.end()]).group() + l[match_2.end() + 2:] + \
                                  re.search(re_opening, k[:match_1.end() + 1]).group() + k[match_1.end() + 1:]
-                        #print("part a", part_a)
-                        #print("part b", part_b)
+                        # print("part a", part_a)
+                        # print("part b", part_b)
                     else:
-                        #print("WADDUP2")
+                        # print("WADDUP2")
                         part_a = k[:match_1.start()] + re.search(re_closing, k[match_1.start():]).group() + l[
                                                                                                             :match_2.start()] + \
                                  re.search(re_closing, l[match_2.start():]).group()
                         part_b = re.search(re_opening, l[:match_2.end()]).group() + l[match_2.end() + 1:] + \
                                  re.search(re_opening, k[:match_1.end() + 1]).group() + k[match_1.end() + 2:]
-                        #print("part a", part_a)
-                        #print("part b", part_b)
+                        # print("part a", part_a)
+                        # print("part b", part_b)
                     final_strand = format_seq(part_a + "[" + match_2.group() + "^]" + part_b)
-                    #print("final", final_strand)
+                    # print("final", final_strand)
                     yield self.Transition([k, l], [final_strand], alpha)
-
-    # def toehold_binding(self, k, l, regex_1, regex_2):
-    #     print("k:", k, "l", l)
-    #     for match_1 in re.finditer(regex_1, k):
-    #         for match_2 in re.finditer(regex_2, l):
-    #             if match_1.group() == match_2.group():
-    #                 if regex_1 == re_upper_lab:
-    #                     print("WADDUP")
-    #                     part_a = k[:match_1.start()] + re.search(re_closing, k[match_1.start():]).group() + l[
-    #                                                                                                         :match_2.start()] + \
-    #                              re.search(re_closing, l[match_2.start():]).group()
-    #                     part_b = re.search(re_opening, l[:match_2.end()]).group() + l[match_2.end() + 2:] + \
-    #                              re.search(re_opening, k[:match_1.end() + 1]).group() + k[match_1.end() + 1:]
-    #                     print("part a", part_a)
-    #                     print("part b", part_b)
-    #                 else:
-    #                     print("WADDUP2")
-    #                     part_a = k[:match_1.start()] + re.search(re_closing, k[match_1.start():]).group() + l[
-    #                                                                                                         :match_2.start()] + \
-    #                              re.search(re_closing, l[match_2.start():]).group()
-    #                     part_b = re.search(re_opening, l[:match_2.end()]).group() + l[match_2.end() + 1:] + \
-    #                              re.search(re_opening, k[:match_1.end() + 1]).group() + k[match_1.end() + 2:]
-    #                     print("part a", part_a)
-    #                     print("part b", part_b)
-    #                 final_strand = format_seq(part_a + "[" + match_2.group() + "^]" + part_b)
-    #                 print("final", final_strand)
-    #                 yield self.Transition([k, l], [final_strand], alpha)
-
 
 class UnbindingRule(stocal.TransitionRule):
     """Splits two strings when a toehold unbinds"""
