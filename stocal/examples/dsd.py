@@ -58,7 +58,7 @@ re_lower_g_2 = re.compile(f"(?<=[^:]):({re_lower.pattern})$")
 re_pre_cover = re.compile(r'(\w+)(?=\^\*\s*\}\s*\<.*\1\^\s*\>)')  # Identifies where the Covering rule can be applied on a gate, before the d_s
 re_post_cover = re.compile(r'(?<=\<)\s*?(\w+)(?=\^.*>\s*\{\s*\1\^\*)')  # Identifies where the Covering rule can be applied on a gate, after the d_s
 re_upper_migrate = re.compile(fr"{re_double.pattern}<(\w+)[^<>:]*?>:{re_upper.pattern}(?:\[(\1)[^<>]*?\w\s*\])")
-re_upper_migrate_rev = re.compile(fr"(?:\[\w[^<>]*?(\w+)\s*\]){re_upper.pattern}:<[^<>:]*?\1\s*>{re_double.pattern}")
+re_upper_migrate_rev = re.compile(fr"(?:\[\w[^<>]*?\s(\w+)\s*\]){re_upper.pattern}:<[^<>:]*?\1\s*>{re_double.pattern}")
 
 
 def find_sub_sequence(regex, seq):
@@ -232,10 +232,11 @@ class MigrationRule(stocal.TransitionRule):
     Transition = stocal.MassAction
 
     def novel_reactions(self, k):
-        yield from self.b_migration_upper(k)
-
-    def b_migration_upper(self, k):
         k = format_seq(k)
+        yield from self.migrate_upper(k)
+        yield from self.migrate_upper_rev(k)
+
+    def migrate_upper(self, k):
         # print("K:  ", k)
         for match in re.finditer(re_upper_migrate, k):
             mid_point = match.group().find(':')
@@ -252,6 +253,21 @@ class MigrationRule(stocal.TransitionRule):
             # print("seq", seq)
             yield self.Transition([k], [seq], alpha)
 
+    def migrate_upper_rev(self, k):
+        for match in re.finditer(re_upper_migrate_rev, k):
+            mid_point = match.group().find(':')
+            d_s_1 = find_sub_sequence(re_double, match.group())
+            pos = d_s_1.rfind(match.group(1))
+            d_s_1 = "[" + d_s_1[:pos] + "]"
+            upper_1 = "<" + match.group(1) + " " + find_sub_sequence(re_upper, match.group()) + ">"
+            upper_2 = find_sub_sequence(re_upper, match.group()[mid_point:])
+            pos_2 = upper_2.rfind(match.group(1))
+            upper_2 = "<" + upper_2[:pos_2] + ">"
+            d_s_2 = "[" + match.group(1) + " " + find_sub_sequence(re_double, match.group()[mid_point:]) + "]"
+            seq = format_seq(k[:match.start()] + d_s_1 + upper_1 + ":" + upper_2 + d_s_2 + k[match.end():])
+            yield self.Transition([k], [seq], alpha)
+
+
 
 process = stocal.Process(
     rules=[BindingRule(), UnbindingRule(), MigrationRule()]
@@ -266,12 +282,14 @@ if __name__ == '__main__':
     # initial_state = {"{F}<B C^ G>[H^]<I>{J}" : 60, "{A C^*}" : 60}
     # initial_state = {"{A C^*}" : 60, "{F}<B C^ G>[H^]<I>{J}" : 60}
     # initial_state = {"{L' N^* R'}" : 10000, "<L N^ R>" : 10000}
-    initial_state = {"{L'}<L>[S1]<S R2 R3>:<L1>[S R2 S2]<R>{R'}" : 6000000}
-#    initial_state = {"{L'}<L>[S1 S]<R2 R3>:<L1 S>[R2 S2]<R>{R'}" : 60}
+   # initial_state = {"{L'}<L>[S1]<S R2 R3>:<L1>[S R2 S2]<R>{R'}" : 6000000}
+   # initial_state = {"{L'}<L>[S1 S]<R2 R3>:<L1 S>[R2 S2]<R>{R'}" : 60}
+    initial_state = {"{L'}<L>[S1 S]<R2>:<L1 S>[S2]<R>{R'}" : 60}
     # TODO:  re.fullmatch() does not work as I thought it did, so error checking needs to be updated so as to make sure every <, { and [ has a corresponding >, }, ].
 
     traj = process.sample(initial_state, tmax=100000.)
     for _ in traj:
+        #print("")
         print(traj.time, traj.state)
 
 # Unused code is below, in case of extensions being needed or previous regex being needed again.
