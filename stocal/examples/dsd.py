@@ -270,7 +270,6 @@ if __name__ == '__main__':
 #    initial_state = {"{L'}<L>[S1 S]<R2 R3>:<L1 S>[R2 S2]<R>{R'}" : 60}
     # TODO:  re.fullmatch() does not work as I thought it did, so error checking needs to be updated so as to make sure every <, { and [ has a corresponding >, }, ].
 
-
     traj = process.sample(initial_state, tmax=100000.)
     for _ in traj:
         print(traj.time, traj.state)
@@ -281,12 +280,6 @@ if __name__ == '__main__':
 
 # upper_th_c = re.compile('(\w)(?=\^\*)(?=[^<>]*>)')
 # lower_th = re.compile('(\w)(?=\^\s)(?=[^{}]*})|(\w)(?=\^})(?=[^{}]*})')
-
-#     yield from self.toehold_binding(k, l, lower_th, upper_th_c)
-#     yield from self.toehold_binding(k, l, upper_th_c, lower_th)
-
-# re_gate = re.compile('(.{2,}?(?=\:))|(\:)(?!.*\:)(.*)')
-#re_double = re.compile(r'(?:\[.*?\])')  # Matches on any double strand (includes brackets).
 
 # Original toehold_binding function
 # def toehold_binding(self, k, l, regex_1, regex_2):
@@ -384,16 +377,6 @@ if __name__ == '__main__':
 #                     updated_gate = format_sequence(gate[:d_s.end()-1] + " " + upper_th.group() + "]" + "<" + upper_seq.group()[upper_th.end():] + "{" + lower_seq.group()[lower_thc.end()+1:])
 #                     print(updated_gate)
 #                     return(updated_gate)
-
-# def toehold_covering_matching(self, gate):
-#     for d_s in re.finditer(re_double, gate):
-#         cover_pos = re.search(re_cover_end, gate)
-#         if cover_pos is not None:
-#             th_pos = gate[cover_pos.end() + 1:].find(cover_pos.group() + "^*")
-#             print(th_pos, "lower label")
-#             updated_gate = format_sequence(gate[:d_s.end() - 1] + " " + cover_pos.group() + "]<" + gate[cover_pos.end() + 1:cover_pos.end() + 1 + th_pos] + gate[cover_pos.end() + th_pos + 4:])
-#             print("updated_gate", updated_gate)
-#         return (cover_pos)
 
 # def toehold_covering_matching(self, gate):
 #     for d_s in re.finditer(re_double, gate):
