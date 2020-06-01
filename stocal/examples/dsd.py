@@ -164,12 +164,12 @@ class UnbindingRule(stocal.TransitionRule):
     Transition = stocal.MassAction
 
     def novel_reactions(self, kl):
-        #print("Unbinding", kl)
+        # print("Unbinding", kl)
         yield from self.toehold_unbinding(kl)
 
     def toehold_unbinding(self, kl):
         kl = format_seq(kl)
-        #print("kl", kl)
+        # print("kl", kl)
         for gate in re.finditer(re_gate, kl):
             d_s = re.search(re_short_double_th, gate.group())
             if d_s is not None:
@@ -223,7 +223,7 @@ class CoveringRule(stocal.TransitionRule):
                                gate.group()[post_cover.end() + 1: post_cover.end() + th_c_pos + 1] + \
                                gate.group()[post_cover.end() + th_c_pos + 4:]
                 updated_seq = k[:gate.start()] + format_seq(updated_gate) + k[gate.end():]
-                #print(updated_seq, "updated seq")
+                # print(updated_seq, "updated seq")
                 yield self.Transition([k], [updated_seq], alpha)
 
 
@@ -236,7 +236,7 @@ class MigrationRule(stocal.TransitionRule):
 
     def b_migration_upper(self, k):
         k = format_seq(k)
-        #print("K:  ", k)
+        # print("K:  ", k)
         for match in re.finditer(re_upper_migrate, k):
             mid_point = match.group().find(':')
             upper_1 = find_sub_sequence(re_upper, match.group())
@@ -249,7 +249,7 @@ class MigrationRule(stocal.TransitionRule):
             upper_2 = "<" + find_sub_sequence(re_upper, match.group()[mid_point:]) + " " + match.group(1) + ">"
             d_s_2 = "[" + d_s_2[pos_2:] + "]"
             seq = format_seq(k[:match.start()] + d_s_1 + upper_1 + ":" + upper_2 + d_s_2 + k[match.end():])
-            #print("seq", seq)
+            # print("seq", seq)
             yield self.Transition([k], [seq], alpha)
 
 
@@ -262,10 +262,10 @@ if __name__ == '__main__':
     # initial_state = {"{ N^* L' R'}": 60, "<L N^ M N^>": 50}
     # initial_state = {"{N^* S' N^*}[C^]": 60, "<N^ M N^>": 50, "{L'}<L>[N^]<R>[M^]<S'>[A^]{B}" : 50}
     # initial_state = {"<A>{B}[D^]<C^ F>{C^* G}": 60}
-    #initial_state = {"{A}<B>[C^]<D>{E}::{F}<G>[H^]<I>{J}::{K}<L>[M^]<N>{O}": 500}
-    #initial_state = {"{F}<B C^ G>[H^]<I>{J}" : 60, "{A C^*}" : 60}
-    #initial_state = {"{A C^*}" : 60, "{F}<B C^ G>[H^]<I>{J}" : 60}
-    #initial_state = {"{L' N^* R'}" : 10000, "<L N^ R>" : 10000}
+    # initial_state = {"{A}<B>[C^]<D>{E}::{F}<G>[H^]<I>{J}::{K}<L>[M^]<N>{O}": 500}
+    # initial_state = {"{F}<B C^ G>[H^]<I>{J}" : 60, "{A C^*}" : 60}
+    # initial_state = {"{A C^*}" : 60, "{F}<B C^ G>[H^]<I>{J}" : 60}
+    # initial_state = {"{L' N^* R'}" : 10000, "<L N^ R>" : 10000}
     initial_state = {"{L'}<L>[S1]<S R2 R3>:<L1>[S R2 S2]<R>{R'}" : 6000000}
 #    initial_state = {"{L'}<L>[S1 S]<R2 R3>:<L1 S>[R2 S2]<R>{R'}" : 60}
     # TODO:  re.fullmatch() does not work as I thought it did, so error checking needs to be updated so as to make sure every <, { and [ has a corresponding >, }, ].
@@ -279,7 +279,6 @@ if __name__ == '__main__':
 
 # Extension (Allow toehold complements on the upper strand and toeholds on the lower strand)
 
-# re_upper_lab = re.compile('(\w)(?=\^\s)(?=[^<>]*>)|(\w)(?=\^>)(?=[^<>]*>)') #Returns the labels of upper toeholds.
 # upper_th_c = re.compile('(\w)(?=\^\*)(?=[^<>]*>)')
 # lower_th = re.compile('(\w)(?=\^\s)(?=[^{}]*})|(\w)(?=\^})(?=[^{}]*})')
 
@@ -316,10 +315,6 @@ if __name__ == '__main__':
 # last_lower_th = re.compile('{([^}]*)}')
 # re_upper = re.compile('(?:\<.*?\>)')  # Matches on any upper strand (includes brackets).
 # last_lower_th = re.compile('({[^}]*)}*(?!(?:.*{|.*\[))')
-# re_upper_lab_start = re.compile('((?<=\<)\s*?(\w)\^)')
-# re_lower_lab_start = re.compile('((?<=\{)\s*?(\w)\^)')
-# re_upper_lab_end = re.compile('(\w)\^(?=\s*\>)')
-# re_lower_lab_end = re.compile('(\w)\^\*(?=\s*\})')
 # re_spaces_end = re.compile('(?<=\S)(\s)+?(?=\>)|(?<=\S)(\s)+?(?=\])|(?<=\S)(\s)+?(?=\})')  # Matches on spaces before bracket closes
 # re_spaces_start = re.compile('(?<=\<)(\s+?)(?=\w)|(?<=\{)(\s+?)(?=\w)|(?<=\[)(\s+?)(?=\w)')  # Matches on spaces between brackets and words, like < A or { B
 # re_spaces = re.compile('(?<=\<)(\s+)|(?<=\{)(\s+)|(?<=\[)(\s+)|(\s)+(?=\>)|(\s)+(?=\])|(\s)+(?=\})')  # Matches on spaces at start or end of parts.
