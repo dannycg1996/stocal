@@ -230,7 +230,7 @@ class CoveringRule(stocal.TransitionRule):
 
 
 class MigrationRule(stocal.TransitionRule):
-    """Splits two strings when a toehold unbinds"""
+    """Migrates an upper or lower overhang up/down a strand via branch migration"""
     Transition = stocal.MassAction
 
     def novel_reactions(self, k):
@@ -263,7 +263,6 @@ class MigrationRule(stocal.TransitionRule):
             yield self.Transition([k], [seq], alpha)
 
     def migrate_rev(self, k, regex_1, regex_2):
-        print("Migrate lower reverse")
         for match in re.finditer(regex_1, k):
             print(match, "MATCH")
             mid_point = match.group().find(':')
@@ -285,6 +284,17 @@ class MigrationRule(stocal.TransitionRule):
             print("seq", seq)
             yield self.Transition([k], [seq], alpha)
 
+class ReductionRule(stocal.TransitionRule):
+    """Splits two strings when a toehold unbinds"""
+    Transition = stocal.MassAction
+
+    def novel_reactions(self, k):
+        k = format_seq(k)
+        yield from self.migrate(k, re_lower_migrate, re_lower)
+        yield from self.migrate(k, re_upper_migrate, re_upper)
+        yield from self.migrate_rev(k, re_lower_migrate_rev, re_lower)
+        yield from self.migrate_rev(k, re_upper_migrate_rev, re_upper)
+
 
 process = stocal.Process(
     rules=[BindingRule(), UnbindingRule(), MigrationRule()]
@@ -301,8 +311,8 @@ if __name__ == '__main__':
     # initial_state = {"{L' N^* R'}" : 10000, "<L N^ R>" : 10000}
    # initial_state = {"{L'}<L>[S1]<S R2 R3>:<L1>[S R2 S2]<R>{R'}" : 6000000}
    # initial_state = {"{L'}<L>[S1 S]<R2 R3>:<L1 S>[R2 S2]<R>{R'}" : 60}
-   # initial_state = {"{L'}<L>[S1]{S R2}::{L1}[S S2]<R>{R'}" : 60}
-    initial_state = {"{L'}<L>[S1 S]<R2>:<L1 S>[S2]<R>{R'}" : 60}
+    initial_state = {"{L'}<L>[S1]<S R2>:<L1>[S]<R>{R'}" : 60}
+
     # TODO:  re.fullmatch() does not work as I thought it did, so error checking needs to be updated so as to make sure every <, { and [ has a corresponding >, }, ].
 
     traj = process.sample(initial_state, tmax=100000.)
@@ -336,28 +346,8 @@ if __name__ == '__main__':
 #                 yield self.Transition([k, l], [final_strand], alpha)
 
 # Unused regex. Kept temporarily for safekeeping.
-# bound_th = re.compile('(\w)(?=\^)(?=[^\[\]]*])') #Matches on a bound double toehold label only.
 # re_upper = re.compile('((?<=\<).+?(?=\>))')  # Pulls through characters between < and > chars, excluding the brackets themselves.
 # re_lower = re.compile('((?<=\{).+?(?=\}))')  # Pulls through characters between { and } chars, excluding the brackets themselves.
-# last_upper_th = re.compile('<([^>]*)>*(?!(?:.*<|.*\[))')
-# last_upper_th = re.compile('<([^>]*)>')
-# last_lower_th = re.compile('{([^}]*)}')
-# re_upper = re.compile('(?:\<.*?\>)')  # Matches on any upper strand (includes brackets).
-# last_lower_th = re.compile('({[^}]*)}*(?!(?:.*{|.*\[))')
-# re_spaces_end = re.compile('(?<=\S)(\s)+?(?=\>)|(?<=\S)(\s)+?(?=\])|(?<=\S)(\s)+?(?=\})')  # Matches on spaces before bracket closes
-# re_spaces_start = re.compile('(?<=\<)(\s+?)(?=\w)|(?<=\{)(\s+?)(?=\w)|(?<=\[)(\s+?)(?=\w)')  # Matches on spaces between brackets and words, like < A or { B
-# re_spaces = re.compile('(?<=\<)(\s+)|(?<=\{)(\s+)|(?<=\[)(\s+)|(\s)+(?=\>)|(\s)+(?=\])|(\s)+(?=\})')  # Matches on spaces at start or end of parts.
-
-# Predecessor to find_sequence function. Can be deleted once testing shows the unbinding function works.
-# if re.search(upper_sequence, kl[bracket_open:double_th.start()]) is not None:
-#    upper_1 = re.search(upper_sequence, kl[bracket_open:double_th.start()]).group()
-#    print("upper_1", upper_1)
-# if re.search(lower_sequence, kl[bracket_open:double_th.start()]) is not None:
-#    lower_1 = re.search(lower_sequence, kl[bracket_open:double_th.start()]).group()
-# if re.search(upper_sequence, kl[double_th.end() + 1:bracket_close]) is not None:
-#     upper_2 = re.search(upper_sequence, kl[double_th.end() + 1:bracket_close]).group()
-# if re.search(lower_sequence, kl[double_th.end():bracket_close]) is not None:
-#     lower_2 = re.search(lower_sequence, kl[double_th.end():bracket_close]).group()
 
 # Original failed checking:
 # for key in initial_state:
