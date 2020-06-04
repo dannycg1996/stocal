@@ -33,9 +33,9 @@ import re
 alpha = 1.e-10
 beta = 1000 ** -2
 
-re_double = re.compile(r'(?:\[[^<{\[\]}>]*?\])') # Matches on any double strand (includes brackets).
-re_upper = re.compile(r'(<[^<\[\{]*?\>)')  # Matches on any upper strand (includes the brackets).
-re_lower = re.compile(r'({[^<\[\{]*?\})') # Matches on any lower strand (includes the brackets).
+re_double = re.compile(r'(\[[^<{\[\]}>]*?\])') # Matches on any double strand (includes brackets).
+re_upper = re.compile(r'(<[^<\[{]*?>)')  # Matches on any upper strand (includes the brackets).
+re_lower = re.compile(r'({[^<\[{]*?\})')  # Matches on any lower strand (includes the brackets).
 re_short_double_th = re.compile(r'(?:\[\W*?(\w)(?:\^\W*?\]))')  # Matches on double toeholds of the form [A^] not [A^ B]
 re_gate = re.compile(
     f"({re_lower.pattern})?({re_upper.pattern})?({re_double.pattern})({re_upper.pattern})?({re_lower.pattern})?")  # Matches on gates
@@ -63,11 +63,15 @@ re_upper_migrate_rev = re.compile(fr"(?:\[\w[^<>]*?\s(\w+)\s*\]){re_upper.patter
 re_lower_migrate_rev = re.compile(fr"(?:\[\w[^<>]*?\s(\w+)\s*\]){re_lower.pattern}::{{[^<>:]*?\1\s*}}{re_double.pattern}")
 re_reduce_upper = re.compile(fr"{re_double.pattern}<(\w+)[^<>:]*?>:{re_upper.pattern}\[\1]{re_upper.pattern}?{re_lower.pattern}?")
 
-re_format_issue = re.compile(
+re_wrong_format = re.compile(
     f"({re_double.pattern}{re_upper.pattern}{re_lower.pattern}?::{re_lower.pattern}?{re_upper.pattern}{re_double.pattern})")
-re_format_issue_2 = re.compile(
-    f"({re_double.pattern}{re_upper.pattern}?{re_lower.pattern}:{re_lower.pattern}{re_upper.pattern}?{re_double.pattern})"
-)
+re_wrong_format_2 = re.compile(
+    f"({re_double.pattern}{re_upper.pattern}?{re_lower.pattern}:{re_lower.pattern}{re_upper.pattern}?{re_double.pattern})")
+re_wrong_format_3 = re.compile(
+    f"({re_double.pattern}{re_upper.pattern}{re_lower.pattern}?::{re_lower.pattern}?{re_double.pattern})")
+re_wrong_format_4 = re.compile(
+    f"({re_double.pattern}{re_upper.pattern}?{re_lower.pattern}:{re_upper.pattern}?{re_double.pattern})")
+
 
 def find_sub_sequence(regex, seq):
     """Takes a regex and a sub sequence, and either returns the regex match (without the first and last chars) or a blank string '' """
@@ -94,8 +98,10 @@ def standardise(seq):
     upper_g_2 = re.search(re_upper_g_2, seq)
     lower_g_1 = re.search(re_lower_g_1, seq)
     lower_g_2 = re.search(re_lower_g_2, seq)
-    format_issue = re.search(re_format_issue, seq)
-    format_issue_2 = re.search(re_format_issue_2, seq)
+    format_issue = re.search(re_wrong_format, seq)
+    format_issue_2 = re.search(re_wrong_format_2, seq)
+    format_issue_3 = re.search(re_wrong_format_3, seq)
+    format_issue_4 = re.search(re_wrong_format_4, seq)
 
     if upper_g_1 is not None:
         pos = seq[upper_g_1.end():].find('<')
@@ -130,11 +136,17 @@ def standardise(seq):
         elif pos_2 != -1 and pos_2 > pos:
             return standardise(seq[:lower_g_2.start()] + seq[lower_g_2.start()+1:])
     elif format_issue is not None:
-        upper = format_issue.group(2)[1:len(format_issue.group(2))-1] + " "
-        return standardise(seq[:format_issue.start(2)] + seq[format_issue.end(2):format_issue.start(5)+1] + upper + seq[format_issue.start(5)+1:])
+        upper = format_issue.group(3)[1:len(format_issue.group(3))-1] + " "
+        return standardise(seq[:format_issue.start(3)] + seq[format_issue.end(3):format_issue.start(6)+1] + upper + seq[format_issue.start(6)+1:])
     elif format_issue_2 is not None:
-        lower = format_issue_2.group(3)[1:len(format_issue_2.group(3))-1] + " "
-        new = seq[:format_issue_2.start(3)] + seq[format_issue_2.end(3):format_issue_2.start(4)+1] + lower + seq[format_issue_2.start(4)+1:]
+        lower = format_issue_2.group(4)[1:len(format_issue_2.group(4))-1] + " "
+        new = seq[:format_issue_2.start(4)] + seq[format_issue_2.end(4):format_issue_2.start(5)+1] + lower + seq[format_issue_2.start(5)+1:]
+        return standardise(new)
+    elif format_issue_3 is not None:
+        new = seq[:format_issue_3.start(3)] + seq[format_issue_3.end(3):format_issue_3.start(6)] + format_issue_3.group(3) + seq[format_issue_3.start(6):]
+        return standardise(new)
+    elif format_issue_4 is not None:
+        new = seq[:format_issue_4.start(4)] + ":" + format_issue_4.group(4) + seq[format_issue_4.end(4)+1:]
         return standardise(new)
     else:
         return seq
@@ -199,7 +211,6 @@ class UnbindingRule(stocal.TransitionRule):
                 lower_2 = find_sub_sequence(re_lower, gate.group()[d_s.end():])
                 part_a = "<" + upper_1 + " " + label + "^ " + upper_2 + ">"
                 part_b = "{" + lower_1 + " " + label + "^* " + lower_2 + "}"
-
                 if gate.start() > 0:
                     if kl[gate.start() - 2:gate.start()] == "::":
                         part_a = kl[:gate.start()] + part_a
@@ -301,6 +312,7 @@ class MigrationRule(stocal.TransitionRule):
             print("seq", seq)
             yield self.Transition([k], [seq], alpha)
 
+
 class ReductionRule(stocal.TransitionRule):
     """Splits two strings when a toehold unbinds"""
     Transition = stocal.MassAction
@@ -349,7 +361,9 @@ if __name__ == '__main__':
     # initial_state = {"{L'}<L>[S]<N^ R>{N^* R'}" : 60}
 
     # TODO:  re.fullmatch() does not work as I thought it did, so error checking needs to be updated so as to make sure every <, { and [ has a corresponding >, }, ].
-
+    c = "{F}<B C^ D G>[H]<R>{A}:<G>[J]<K>{L}"
+    y = standardise(c)
+    print("Y", y)
     traj = process.sample(initial_state, tmax=100000.)
     initial_state = {standardise(key) : value  for key, value in initial_state.items()}
 
