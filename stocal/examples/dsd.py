@@ -51,7 +51,7 @@ re_empty = re.compile(r'(<(?:\s)*>)|({(?:\s)*})|(\[(?:\s)*])')  # Matches on emp
 re_large_spaces = re.compile(r'(\s{2,})')  # Matches on spaces of length > 1
 re_spaces = re.compile(r'(?<=[:>}\]<{\[])(\s+)|(\s+)(?=[:>\]}])') # Matches on unneccessary spaces.
 re_upper_g_1 = re.compile(f"^({re_upper.pattern})::|(?<=::)({re_upper.pattern})::")
-re_upper_g_2 = re.compile(f"(::)({re_upper.pattern})$")
+re_upper_g_2 = re.compile(f"::({re_upper.pattern})$")
 re_lower_g_1 = re.compile(f"^({re_lower.pattern}):(?=[^:])|(?<=[^:]:)({re_lower.pattern}):(?=[^:])")
 re_lower_g_2 = re.compile(f"(?<=[^:]):({re_lower.pattern})$")
 
