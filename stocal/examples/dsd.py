@@ -61,7 +61,10 @@ re_upper_migrate = re.compile(fr"{re_double.pattern}<(\w+)[^<>:]*?>:{re_upper.pa
 re_lower_migrate = re.compile(fr"{re_double.pattern}{{(\w+)[^<>:]*?\}}::{re_lower.pattern}(?:\[(\1)[^<>]*?\w\s*\])")
 re_upper_migrate_rev = re.compile(fr"(?:\[\w[^<>]*?\s(\w+)\s*\]){re_upper.pattern}:<[^<>:]*?\1\s*>{re_double.pattern}")
 re_lower_migrate_rev = re.compile(fr"(?:\[\w[^<>]*?\s(\w+)\s*\]){re_lower.pattern}::{{[^<>:]*?\1\s*}}{re_double.pattern}")
+re_reduce_upper = re.compile(fr"{re_double.pattern}<(\w+)[^<>:]*?>:{re_upper.pattern}\[\1]{re_upper.pattern}?{re_lower.pattern}?")
 
+re_format_issue = re.compile(
+    f"({re_double.pattern}{re_upper.pattern}{re_lower.pattern}?::{re_lower.pattern}?{re_upper.pattern}{re_double.pattern})")
 
 def find_sub_sequence(regex, seq):
     """Takes a regex and a sub sequence, and either returns the regex match (without the first and last chars) or a blank string '' """
@@ -76,16 +79,20 @@ def format_seq(seq):
     seq = re.sub(re_large_spaces, " ", seq)  # Replaces spaces of length 2 or more with single spaces.
     seq = re.sub(re_spaces, '', seq)  # Remove unnecessary spaces
     seq = re.sub(re_empty, '', seq)  # Remove empty brackets
-    return standardise(seq)
+    return seq
 
 
 def standardise(seq):
     """Identifies gates which only contain a single upper or lower strand, and adds this strand to an adjacent gate, with
     the following gate taking priority over the previous gate"""
+    seq = format_seq(seq)
+
     upper_g_1 = re.search(re_upper_g_1, seq)
     upper_g_2 = re.search(re_upper_g_2, seq)
     lower_g_1 = re.search(re_lower_g_1, seq)
     lower_g_2 = re.search(re_lower_g_2, seq)
+    format_issue = re.search(re_format_issue, seq)
+
 
     if upper_g_1 is not None:
         pos = seq[upper_g_1.end():].find('<')
@@ -119,6 +126,9 @@ def standardise(seq):
             return standardise(seq[:pos] + lower + seq[pos:lower_g_2.start()])
         elif pos_2 != -1 and pos_2 > pos:
             return standardise(seq[:lower_g_2.start()] + seq[lower_g_2.start()+1:])
+    elif format_issue is not None:
+        upper = format_issue.group(2)[1:len(format_issue.group(2))-1] + " "
+        return standardise(seq[:format_issue.start(2)] + seq[format_issue.end(2):format_issue.start(5)+1] + upper + seq[format_issue.start(5)+1:])
     else:
         return seq
 
@@ -158,7 +168,7 @@ class BindingRule(stocal.TransitionRule):
                         # print("part a", part_a)
                         # print("part b", part_b)
                     final_strand = format_seq(part_a + "[" + match_2.group() + "^]" + part_b)
-                    # print("final", final_strand)
+                    print("final", final_strand)
                     yield self.Transition([k, l], [final_strand], alpha)
 
 class UnbindingRule(stocal.TransitionRule):
@@ -194,8 +204,8 @@ class UnbindingRule(stocal.TransitionRule):
                     else:
                         part_b = part_b + kl[gate.end():]
 
-                #print("FINAL A:", format_seq(part_a), "FINAL B:", format_seq(part_b))
-                yield self.Transition([kl], [format_seq(part_a), format_seq(part_b)], alpha)
+                print("FINAL A:", standardise(part_a), "FINAL B:", standardise(part_b))
+                yield self.Transition([kl], [standardise(part_a), standardise(part_b)], alpha)
 
 
 class CoveringRule(stocal.TransitionRule):
@@ -225,7 +235,7 @@ class CoveringRule(stocal.TransitionRule):
                                gate.group()[post_cover.end() + 1: post_cover.end() + th_c_pos + 1] + \
                                gate.group()[post_cover.end() + th_c_pos + 4:]
                 updated_seq = k[:gate.start()] + format_seq(updated_gate) + k[gate.end():]
-                # print(updated_seq, "updated seq")
+                print(updated_seq, "updated seq")
                 yield self.Transition([k], [updated_seq], alpha)
 
 
@@ -290,14 +300,31 @@ class ReductionRule(stocal.TransitionRule):
 
     def novel_reactions(self, k):
         k = format_seq(k)
-        yield from self.migrate(k, re_lower_migrate, re_lower)
-        yield from self.migrate(k, re_upper_migrate, re_upper)
-        yield from self.migrate_rev(k, re_lower_migrate_rev, re_lower)
-        yield from self.migrate_rev(k, re_upper_migrate_rev, re_upper)
+        yield from self.upper_reduction(k, re_reduce_upper, re_upper)
 
+    def upper_reduction(self, k, regex_1, regex_2):
+        print("K:", k)
+        for match in re.finditer(regex_1, k):
+            mid_point = match.group().find(':')
+            marker = match.group()[mid_point:].find(']')
+            end = re.search(regex_2, match.group()[marker:])
+            strand_1 = find_sub_sequence(regex_2, match.group()[mid_point:]) + " " + match.group(1) + " " + end.group()[1:len(end.group()) - 1]
+            d_s = "[" + find_sub_sequence(re_double, match.group()) + " " + match.group(1) + "]"
+            print(d_s, "d_s")
+            print(mid_point)
+            print("match reduce", match)
+            if regex_2 == re_upper:
+                strand_1 = format_seq("<" + strand_1 + ">")
+            else:
+                strand_1 = format_seq("{" + strand_1 + "}")
+            strand_2 = format_seq(k[:match.start()] + d_s + k[match.end():])
+            print("strand_1", strand_1, "strand_2", strand_2)
+
+            yield self.Transition([k], [k], alpha)
 
 process = stocal.Process(
-    rules=[BindingRule(), UnbindingRule(), MigrationRule()]
+    #rules=[BindingRule(), UnbindingRule(), MigrationRule()]
+    rules = [BindingRule(), UnbindingRule()]
 )
 
 if __name__ == '__main__':
@@ -305,16 +332,20 @@ if __name__ == '__main__':
     # initial_state = {"{ N^* L' R'}": 60, "<L N^ M N^>": 50}
     # initial_state = {"{N^* S' N^*}[C^]": 60, "<N^ M N^>": 50, "{L'}<L>[N^]<R>[M^]<S'>[A^]{B}" : 50}
     # initial_state = {"<A>{B}[D^]<C^ F>{C^* G}": 60}
-    # initial_state = {"{A}<B>[C^]<D>{E}::{F}<G>[H^]<I>{J}::{K}<L>[M^]<N>{O}": 500}
-    # initial_state = {"{F}<B C^ G>[H^]<I>{J}" : 60, "{A C^*}" : 60}
+    # initial_state = {"<Z Y C>[B]::<E F G>::[K]": 60}
+    initial_state = {"{A}<B>[C^]<D>{E}::{F}<G>[H^]<I>{J}": 500} #THIS ONE
+    #initial_state = {"{F}<B C^ D G>[H^]<I>{J}::{K}<L>[M^]<N>{O}::{P}<Q>[R^]<S>{T}" : 60, "{A C^*}" : 60} #THIS ONE
     # initial_state = {"{A C^*}" : 60, "{F}<B C^ G>[H^]<I>{J}" : 60}
     # initial_state = {"{L' N^* R'}" : 10000, "<L N^ R>" : 10000}
-   # initial_state = {"{L'}<L>[S1]<S R2 R3>:<L1>[S R2 S2]<R>{R'}" : 6000000}
-   # initial_state = {"{L'}<L>[S1 S]<R2 R3>:<L1 S>[R2 S2]<R>{R'}" : 60}
-    initial_state = {"{L'}<L>[S1]<S R2>:<L1>[S]<R>{R'}" : 60}
+    # initial_state = {"{L'}<L>[S1]<S R2 R3>:<L1>[S R2 S2]<R>{R'}" : 6000000}
+    # initial_state = {"{L'}<L>[S1]<S R>:<L2>[S]<R2>{R'}" : 60}
+    # initial_state = {"{L'}<L>[S]<N^ R>{N^* R'}" : 60}
 
     # TODO:  re.fullmatch() does not work as I thought it did, so error checking needs to be updated so as to make sure every <, { and [ has a corresponding >, }, ].
 
+    x = "{F}<B C^ D G>[H^]<I>{J}::{K}<L>[M^]<N>{O}::{P}<Q>[R^]<S>{T}"
+    z = standardise(x)
+    print("TeSt", z)
     traj = process.sample(initial_state, tmax=100000.)
     for _ in traj:
         #print("")
