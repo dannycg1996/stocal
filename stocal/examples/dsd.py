@@ -65,6 +65,9 @@ re_reduce_upper = re.compile(fr"{re_double.pattern}<(\w+)[^<>:]*?>:{re_upper.pat
 
 re_format_issue = re.compile(
     f"({re_double.pattern}{re_upper.pattern}{re_lower.pattern}?::{re_lower.pattern}?{re_upper.pattern}{re_double.pattern})")
+re_format_issue_2 = re.compile(
+    f"({re_double.pattern}{re_upper.pattern}?{re_lower.pattern}:{re_lower.pattern}{re_upper.pattern}?{re_double.pattern})"
+)
 
 def find_sub_sequence(regex, seq):
     """Takes a regex and a sub sequence, and either returns the regex match (without the first and last chars) or a blank string '' """
@@ -92,7 +95,7 @@ def standardise(seq):
     lower_g_1 = re.search(re_lower_g_1, seq)
     lower_g_2 = re.search(re_lower_g_2, seq)
     format_issue = re.search(re_format_issue, seq)
-
+    format_issue_2 = re.search(re_format_issue_2, seq)
 
     if upper_g_1 is not None:
         pos = seq[upper_g_1.end():].find('<')
@@ -129,6 +132,10 @@ def standardise(seq):
     elif format_issue is not None:
         upper = format_issue.group(2)[1:len(format_issue.group(2))-1] + " "
         return standardise(seq[:format_issue.start(2)] + seq[format_issue.end(2):format_issue.start(5)+1] + upper + seq[format_issue.start(5)+1:])
+    elif format_issue_2 is not None:
+        lower = format_issue_2.group(3)[1:len(format_issue_2.group(3))-1] + " "
+        new = seq[:format_issue_2.start(3)] + seq[format_issue_2.end(3):format_issue_2.start(4)+1] + lower + seq[format_issue_2.start(4)+1:]
+        return standardise(new)
     else:
         return seq
 
@@ -343,10 +350,9 @@ if __name__ == '__main__':
 
     # TODO:  re.fullmatch() does not work as I thought it did, so error checking needs to be updated so as to make sure every <, { and [ has a corresponding >, }, ].
 
-    x = "{F}<B C^ D G>[H^]<I>{J}::{K}<L>[M^]<N>{O}::{P}<Q>[R^]<S>{T}"
-    z = standardise(x)
-    print("TeSt", z)
     traj = process.sample(initial_state, tmax=100000.)
+    initial_state = {standardise(key) : value  for key, value in initial_state.items()}
+
     for _ in traj:
         #print("")
         print(traj.time, traj.state)
