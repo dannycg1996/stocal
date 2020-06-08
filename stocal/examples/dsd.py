@@ -56,8 +56,8 @@ re_lone_upper_2 = re.compile(f"{re_gate.pattern}::({re_upper.pattern})$")
 re_lone_lower_1 = re.compile(f"^{re_lower.pattern}:{re_gate.pattern}|(?<=[^:]:){re_lower.pattern}:{re_gate.pattern}")
 re_lone_lower_2 = re.compile(f"{re_gate.pattern}:{re_lower.pattern}$")
 
-re_pre_cover = re.compile(r'(\w+)(?=\^\*\s*\}\s*\<.*\1\^\s*\>)')  # Matches where the Covering rule can be applied on a gate, before the d_s
-re_post_cover = re.compile(r'(?<=\<)\s*?(\w+)(?=\^.*>\s*\{\s*\1\^\*)')  # Matches where the Covering rule can be applied on a gate, after the d_s
+re_pre_cover = re.compile(r'(\w+)(?=\^\*\s*\}\s*\<.*(\1)\^\s*\>)')  # Matches where the Covering rule can be applied on a gate, before the d_s
+re_post_cover = re.compile(r'(?<=\<)\s*?(\w+)(?=\^.*>\s*\{\s*(\1)\^\*)')  # Matches where the Covering rule can be applied on a gate, after the d_s
 re_upper_migrate = re.compile(
     fr"{re_double.pattern}<(\w+)[^<>:]*?>:{re_upper.pattern}(?:\[(\1)[^<>]*?\w\s*\])")   # Matches where upper strand migration can occur.
 re_lower_migrate = re.compile(
@@ -88,6 +88,12 @@ def find_sub_sequence(regex, seq):
         return seq.group()[1:len(seq.group()) - 1]
     return ""
 
+
+def find_sub_sequence_2(seq):
+    """Takes a sub sequence, and either returns the regex match (without the first and last chars) or a blank string '' """
+    if seq is not None:
+        return seq[1:len(seq) - 1]
+    return ""
 
 def tidy(sys):
     """Remove unnecessary whitespaces and empty brackets"""
@@ -199,12 +205,10 @@ class BindingRule(stocal.TransitionRule):
     """Join any two strings into their concatenations"""
     Transition = stocal.MassAction
 
-    # TODO: Stop this binding rule from allowing any binding on to toeholds on overhangs.
-    # Either don't match on them (how?) or regex check for toeholds on overhangs in if __name__ == '__main__':
     def novel_reactions(self, k, l):
         if re.search(re_gate, k) is None or re.search(re_gate, l) is None:
             if re.search(re_gate, k) is not None or re.search(re_gate, l) is not None:
-                #TODO: Can I avoid calling this function 4 times? Maybe 2 times instead?
+                # TODO: Can I avoid calling this function 4 times? Maybe 2 times instead?
                 yield from self.strand_to_gate_bindin(k, l, re_upper_lab, re_lower_lab)
                 yield from self.strand_to_gate_binding(l, k, re_upper_lab, re_lower_lab)
                 yield from self.strand_to_gate_binding(k, l, re_lower_lab, re_upper_lab)
@@ -264,31 +268,31 @@ class BindingRule(stocal.TransitionRule):
                                  l[:match_2.start()] + re.search(re_close, l[match_2.start():]).group()
                         part_b = re.search(re_open, l[:match_2.end()]).group() + l[match_2.end() + 1:] + \
                                  re.search(re_open, k[:match_1.end() + 1]).group() + k[match_1.end() + 2:]
-                    # print("part A", part_a)
-                    # print("part B", part_b)
                     # print("final", format_seq(part_a + d_s + part_b))
                     yield self.Transition([k, l], [tidy(part_a + d_s + part_b)], alpha)
 
 
 class UnbindingRule(stocal.TransitionRule):
-    """Splits two strings when a toehold unbinds"""
+    """Splits two systems when a toehold unbinds"""
     Transition = stocal.MassAction
 
     def novel_reactions(self, kl):
-        # print("Unbinding", kl)
         yield from self.toehold_unbinding(kl)
 
     def toehold_unbinding(self, kl):
         kl = tidy(kl)
-        # print("kl", kl)
         for gate in re.finditer(re_gate, kl):
             d_s = re.search(re_short_double_th, gate.group())
             if d_s is not None:
                 label = re.search(re_double_lab, d_s.group()).group()
-                upper_1 = find_sub_sequence(re_upper, gate.group()[:d_s.start()])
-                lower_1 = find_sub_sequence(re_lower, gate.group()[:d_s.start()])
-                upper_2 = find_sub_sequence(re_upper, gate.group()[d_s.end():])
-                lower_2 = find_sub_sequence(re_lower, gate.group()[d_s.end():])
+                upper_1 = find_sub_sequence_2(gate.group(2))
+                lower_1 = find_sub_sequence_2(gate.group(1))
+                upper_2 = find_sub_sequence_2(gate.group(4))
+                lower_2 = find_sub_sequence_2(gate.group(5))
+                #upper_1 = find_sub_sequence(re_upper, gate.group()[:d_s.start()])
+                #lower_1 = find_sub_sequence(re_lower, gate.group()[:d_s.start()])
+                # upper_2 = find_sub_sequence(re_upper, gate.group()[d_s.end():])
+                # lower_2 = find_sub_sequence(re_lower, gate.group()[d_s.end():])
                 part_a = "<" + upper_1 + " " + label + "^ " + upper_2 + ">"
                 part_b = "{" + lower_1 + " " + label + "^* " + lower_2 + "}"
                 if gate.start() > 0:
@@ -307,7 +311,8 @@ class UnbindingRule(stocal.TransitionRule):
 
 
 class CoveringRule(stocal.TransitionRule):
-    """Splits two strings when a toehold unbinds"""
+    """This rule carries out the toehold covering reaction, where an exposed toehold in a lower strand is covered by a complementary
+     exposed toehold in the upper strand"""
     Transition = stocal.MassAction
 
     def novel_reactions(self, k):
@@ -315,26 +320,24 @@ class CoveringRule(stocal.TransitionRule):
 
     def toehold_covering(self, k):
         k = tidy(k)
+        print("No")
         for gate in re.finditer(re_gate, k):
-            d_s = re.search(re_double, gate.group())
             pre_cover = re.search(re_pre_cover, gate.group())
             post_cover = re.search(re_post_cover, gate.group())
             if pre_cover is not None:
-                th_pos = gate.group()[pre_cover.start() + 2: d_s.start()].find(pre_cover.group() + "^")
-                updated_gate = gate.group()[:pre_cover.start()] + gate.group()[
-                                                                  pre_cover.end() + 2: pre_cover.end() + th_pos] + \
-                               ">[" + pre_cover.group() + "^ " + gate.group()[d_s.start() + 1:]
-                updated_seq = k[:gate.start()] + tidy(updated_gate) + k[gate.end():]
-                # print(updated_seq, "updated seq")
-                yield self.Transition([k], [updated_seq], alpha)
+                print("yes")
+                updated_gate = gate.group()[:pre_cover.start()] + gate.group()[pre_cover.end() + 2: pre_cover.start(2)] + ">[" + \
+                    pre_cover.group() + "^ " + gate.group()[gate.start(3)+1:]
+                updated_sys = k[:gate.start()] + tidy(updated_gate) + k[gate.end():]
+                print(updated_sys, "updated seq")
+                yield self.Transition([k], [updated_sys], alpha)
             if post_cover is not None:
-                th_c_pos = gate.group()[post_cover.end() + 1:].find(post_cover.group() + "^*")
-                updated_gate = gate.group()[:d_s.end() - 1] + " " + post_cover.group() + "]<" + \
-                               gate.group()[post_cover.end() + 1: post_cover.end() + th_c_pos + 1] + \
-                               gate.group()[post_cover.end() + th_c_pos + 4:]
-                updated_seq = k[:gate.start()] + tidy(updated_gate) + k[gate.end():]
-                #(updated_seq, "updated seq")
-                yield self.Transition([k], [updated_seq], alpha)
+                print("yes")
+                updated_gate = gate.group()[:gate.end(3) - 1] + " " + post_cover.group() + "^]<" + \
+                               gate.group()[post_cover.end()+1:gate.end(4)] + "{" + gate.group()[post_cover.end(2)+2:]
+                updated_sys = k[:gate.start()] + tidy(updated_gate) + k[gate.end():]
+                print(updated_sys, "updated_sys seq")
+                yield self.Transition([k], [updated_sys], alpha)
 
 
 class MigrationRule(stocal.TransitionRule):
@@ -426,7 +429,7 @@ class ReductionRule(stocal.TransitionRule):
 
 
 process = stocal.Process(
-    rules=[BindingRule(), UnbindingRule()]
+    rules=[CoveringRule()]
 )
 
 if __name__ == '__main__':
@@ -438,6 +441,7 @@ if __name__ == '__main__':
     initial_state = {"{A}<B>[C^]<D>{E}::{F}<G>[H^]<I>{J}::{K}<L>[M^]<N>{O}": 500}  # THIS ONE
     initial_state = {"<L1 N^ S R1>": 60, "{L' N^*}<L>[S R2]<R>{R'}": 60}
     initial_state = {"{L'}<L1>[N^]<S R1>:<L>[S R2]<R>{R'}" : 60}
+    initial_state = {"{N^*}<R N^>[S]<A B C>{D E}" : 60}
     #initial_state = {'{K M^* O}': 500, '{F H^* J}': 500, '{A C^* E}': 500, '<B C^ D G H^ I L M^ N>': 500}
     #initial_state = {"{A}<B>[C^]<D>:{E F^* G}<H>[I]<J>{K}": 60, "<Z F^ X>": 60}
     # initial_state = {"{A}<B>[C^]{E}::{K}<D G H^ I L>[M^]<O>{Z N^* G}" :600, "<F N^ J>":600}
@@ -455,9 +459,9 @@ if __name__ == '__main__':
     # re_lone_upper_1 = re.compile(f"^({re_upper.pattern})::|(?<=::)({re_upper.pattern})::")
     #x = "<A B C>::<F G>[H^ I]{L}::<A B C>::<H>[Y^]<N>{Z}::<A B C>"
     x = "{F}:<A B C>[D^]<M>{J}::<A B>::{F}<F>[G^]"
-    print("X", x)
-    z = standardise(x)
-    print("STANDARDISE", z)
+    #print("X", x)
+    #z = standardise(x)
+    #print("STANDARDISE", z)
     traj = process.sample(initial_state, tmax=100.)
     for _ in traj:
         print(traj.time, traj.state)
@@ -724,3 +728,33 @@ if __name__ == '__main__':
 # re_lone_upper_1 = re.compile(f"^{re_upper.pattern}::|(?<=::){re_upper.pattern}::")
 # re_lone_upper_2 = re.compile(f"::({re_upper.pattern})$")
 # re_lone_lower_1 = re.compile(f"^({re_lower.pattern}):(?=[^:])|(?<=[^:]:)({re_lower.pattern}):(?=[^:])")
+
+    # def toehold_covering(self, k):
+    #     k = tidy(k)
+    #     print("k", k)
+    #     for gate in re.finditer(re_gate, k):
+    #         d_s = gate.group(3)
+    #         #d_s = re.search(re_double, gate.group())
+    #         print("Here")
+    #         pre_cover = re.search(re_pre_cover, gate.group())
+    #         print(pre_cover, "pre")
+    #         post_cover = re.search(re_post_cover, gate.group())
+    #         print("post", post_cover)
+    #         if pre_cover is not None:
+    #             th_pos = gate.group()[pre_cover.start() + 2: gate.start(3)].find(pre_cover.group() + "^")
+    #             print("th_pos", th_pos)
+    #             updated_gate = gate.group()[:pre_cover.start()] + gate.group()[
+    #                                                               pre_cover.end() + 2: pre_cover.end() + th_pos] + \
+    #                            ">[" + pre_cover.group() + "^ " + gate.group()[d_s.start() + 1:]
+    #             updated_seq = k[:gate.start()] + tidy(updated_gate) + k[gate.end():]
+    #             print(updated_seq, "updated seq")
+    #             yield self.Transition([k], [updated_seq], alpha)
+    #         if post_cover is not None:
+    #             th_c_pos = gate.group()[post_cover.end() + 1:].find(post_cover.group() + "^*")
+    #             print("th_c pos", th_c_pos)
+    #             updated_gate = gate.group()[:d_s.end() - 1] + " " + post_cover.group() + "]<" + \
+    #                            gate.group()[post_cover.end() + 1: post_cover.end() + th_c_pos + 1] + \
+    #                            gate.group()[post_cover.end() + th_c_pos + 4:]
+    #             updated_seq = k[:gate.start()] + tidy(updated_gate) + k[gate.end():]
+    #             print(updated_seq, "updated seq")
+    #             yield self.Transition([k], [updated_seq], alpha)
