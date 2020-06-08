@@ -44,36 +44,40 @@ re_double_lab = re.compile(r'(\w)(?=\^)(?=[^<>{}]*])')  # Returns the label of a
 re_upper_lab = re.compile(r'(\w)(?=\^)(?=[^<>]*>)')  # Returns the labels of upper toeholds.
 re_lower_lab = re.compile(r'(\w)(?=\^\*)(?=[^{}]*})')  # Returns labels of lower toeholds
 
-re_opening = re.compile(r'<|\[|{')  # Matches on open brackets [, { and <
-re_closing = re.compile(r'(>|\]|})')  # Matches on close brackets ], } and >
-
+re_open = re.compile(r'<|\[|{')  # Matches on open brackets [, { and <
+re_close = re.compile(r'(>|\]|})')  # Matches on close brackets ], } and >
 re_empty = re.compile(r'(<(?:\s)*>)|({(?:\s)*})|(\[(?:\s)*])')  # Matches on empty brackets like <>, {} and [ ].
 re_large_spaces = re.compile(r'(\s{2,})')  # Matches on spaces of length > 1
-re_spaces = re.compile(r'(?<=[:>}\]<{\[])(\s+)|(\s+)(?=[:>\]}])')  # Matches on unneccessary spaces.
-re_upper_g_1 = re.compile(f"^({re_upper.pattern})::|(?<=::)({re_upper.pattern})::")
-re_upper_g_2 = re.compile(f"::({re_upper.pattern})$")
-re_lower_g_1 = re.compile(f"^({re_lower.pattern}):(?=[^:])|(?<=[^:]:)({re_lower.pattern}):(?=[^:])")
-re_lower_g_2 = re.compile(f"(?<=[^:]):({re_lower.pattern})$")
+re_spaces = re.compile(r'(?<=[:>}\]<{\[])(\s+)|(\s+)(?=[:>\]}])')  # Matches on unnecessary spaces.
 
-re_pre_cover = re.compile(
-    r'(\w+)(?=\^\*\s*\}\s*\<.*\1\^\s*\>)')  # Identifies where the Covering rule can be applied on a gate, before the d_s
-re_post_cover = re.compile(
-    r'(?<=\<)\s*?(\w+)(?=\^.*>\s*\{\s*\1\^\*)')  # Identifies where the Covering rule can be applied on a gate, after the d_s
-re_upper_migrate = re.compile(fr"{re_double.pattern}<(\w+)[^<>:]*?>:{re_upper.pattern}(?:\[(\1)[^<>]*?\w\s*\])")
-re_lower_migrate = re.compile(fr"{re_double.pattern}{{(\w+)[^<>:]*?\}}::{re_lower.pattern}(?:\[(\1)[^<>]*?\w\s*\])")
-re_upper_migrate_rev = re.compile(fr"(?:\[\w[^<>]*?\s(\w+)\s*\]){re_upper.pattern}:<[^<>:]*?\1\s*>{re_double.pattern}")
-re_lower_migrate_rev = re.compile(
-    fr"(?:\[\w[^<>]*?\s(\w+)\s*\]){re_lower.pattern}::{{[^<>:]*?\1\s*}}{re_double.pattern}")
+# The below 4 patterns match on different variants of gates which contain just a single upper or lower strand.
+re_lone_upper_1 = re.compile(f"^{re_upper.pattern}::{re_gate.pattern}|(?<=::){re_upper.pattern}::{re_gate.pattern}")
+re_lone_upper_2 = re.compile(f"{re_gate.pattern}::({re_upper.pattern})$")
+re_lone_lower_1 = re.compile(f"^{re_lower.pattern}:{re_gate.pattern}|(?<=[^:]:){re_lower.pattern}:{re_gate.pattern}")
+re_lone_lower_2 = re.compile(f"{re_gate.pattern}:{re_lower.pattern}$")
+
+re_pre_cover = re.compile(r'(\w+)(?=\^\*\s*\}\s*\<.*\1\^\s*\>)')  # Matches where the Covering rule can be applied on a gate, before the d_s
+re_post_cover = re.compile(r'(?<=\<)\s*?(\w+)(?=\^.*>\s*\{\s*\1\^\*)')  # Matches where the Covering rule can be applied on a gate, after the d_s
+re_upper_migrate = re.compile(
+    fr"{re_double.pattern}<(\w+)[^<>:]*?>:{re_upper.pattern}(?:\[(\1)[^<>]*?\w\s*\])")   # Matches where upper strand migration can occur.
+re_lower_migrate = re.compile(
+    fr"{re_double.pattern}{{(\w+)[^<>:]*?\}}::{re_lower.pattern}(?:\[(\1)[^<>]*?\w\s*\])")  # Matches where lower strand migration can occur.
+re_upper_migrate_r = re.compile(
+    fr"(?:\[\w[^<>]*?\s(\w+)\s*\]){re_upper.pattern}:<[^<>:]*?\1\s*>{re_double.pattern}")  # Matches where upper strand rev migration can occur.
+re_lower_migrate_r = re.compile(
+    fr"(?:\[\w[^<>]*?\s(\w+)\s*\]){re_lower.pattern}::{{[^<>:]*?\1\s*}}{re_double.pattern}") # Matches where lower strand rev migration can occur.
+
 re_reduce_upper = re.compile(
     fr"{re_double.pattern}<(\w+)[^<>:]*?>:{re_upper.pattern}\[\1]{re_upper.pattern}?{re_lower.pattern}?")
+#TODO: Finish the reduce rule.
 
-re_wrong_format = re.compile(
+re_format_1 = re.compile(
     f"({re_double.pattern}{re_upper.pattern}{re_lower.pattern}?::{re_lower.pattern}?{re_upper.pattern}{re_double.pattern})")
-re_wrong_format_2 = re.compile(
+re_format_2 = re.compile(
     f"({re_double.pattern}{re_upper.pattern}?{re_lower.pattern}:{re_lower.pattern}{re_upper.pattern}?{re_double.pattern})")
-re_wrong_format_3 = re.compile(
+re_format_3 = re.compile(
     f"({re_double.pattern}{re_upper.pattern}{re_lower.pattern}?::{re_lower.pattern}?{re_double.pattern})")
-re_wrong_format_4 = re.compile(
+re_format_4 = re.compile(
     f"({re_double.pattern}{re_upper.pattern}?{re_lower.pattern}:{re_upper.pattern}?{re_double.pattern})")
 
 
@@ -85,83 +89,110 @@ def find_sub_sequence(regex, seq):
     return ""
 
 
-def format_seq(seq):
+def tidy(sys):
     """Remove unnecessary whitespaces and empty brackets"""
-    seq = re.sub(re_large_spaces, " ", seq)  # Replaces spaces of length 2 or more with single spaces.
-    seq = re.sub(re_spaces, '', seq)  # Remove unnecessary spaces
-    seq = re.sub(re_empty, '', seq)  # Remove empty brackets
-    return seq
+    sys = re.sub(re_large_spaces, " ", sys)  # Replaces spaces of length 2 or more with single spaces.
+    sys = re.sub(re_spaces, '', sys)  # Remove unnecessary spaces
+    sys = re.sub(re_empty, '', sys)  # Remove empty brackets
+    return sys
 
 
-def standardise(seq):
-    """Identifies gates which only contain a single upper or lower strand, and adds this strand to an adjacent gate, with
+def fix_upper_gate(sys, match_obj, i):
+    """This function takes a system sys, a match object and a starting index. The match object identifies gates which consist solely of
+     an upper strand, merges it with a gate to the right, and then returns the updated system"""
+    if match_obj.group(3+i) is not None:  # Match object has 6 groups: (< >)::({ })(< >)([ ])(< >)({ })
+        print("A")
+        strand = sys[:match_obj.start()] + sys[match_obj.end(1+i)+2:match_obj.start(3+i)+1] +\
+            match_obj.group(1+i)[1:len(match_obj.group(1+i))-1] + " " + sys[match_obj.start(3+i)+1:]
+        print("Strand", strand)
+    elif match_obj.group(2+i) is not None:
+        print("B")
+        strand = sys[:match_obj.start()] + match_obj.group(2+i) + match_obj.group(1+i) + sys[match_obj.start(4+i):]
+    else:
+        print("C")
+        strand = sys[:match_obj.start()] + match_obj.group(1+i) + sys[match_obj.start(4+i):]
+    print(strand, "strand 2")
+    return strand
+
+
+def fix_lower_gate(sys, match_obj, i):
+    """This function takes a system sys, a match object and a starting index. The match object identifies gates which consist solely of
+     a lower strand, merges it with a gate to the right, and then returns the updated system"""
+    if match_obj.group(2+i) is not None: # Match object has 6 groups: ({ })::({ })(< >)([ ])(< >)({ })
+        strand = sys[:match_obj.start()] + sys[match_obj.end(1+i)+1:match_obj.start(2+i)+1] +\
+            match_obj.group(1+i)[1:len(match_obj.group(1+i))-1] + " " + sys[match_obj.start(2+i)+1:]
+    else:
+        strand = sys[:match_obj.start()] + match_obj.group(1+i) + sys[match_obj.end(1+i)+1:]
+    return strand
+
+
+def merge_gates(sys):
+    """This function identifies gates which only contain a single upper or lower strand, and merges this strand to an adjacent gate, with
     the following gate taking priority over the previous gate"""
-    seq = format_seq(seq)
-
-    upper_g_1 = re.search(re_upper_g_1, seq)
-    upper_g_2 = re.search(re_upper_g_2, seq)
-    lower_g_1 = re.search(re_lower_g_1, seq)
-    lower_g_2 = re.search(re_lower_g_2, seq)
-    format_issue = re.search(re_wrong_format, seq)
-    format_issue_2 = re.search(re_wrong_format_2, seq)
-    format_issue_3 = re.search(re_wrong_format_3, seq)
-    format_issue_4 = re.search(re_wrong_format_4, seq)
+    upper_g_1 = re.search(re_lone_upper_1, sys)  # Matches on ^< >::{gate} or ::< >::{gate}
+    upper_g_2 = re.search(re_lone_upper_2, sys)  # Matches on {gate}::< >$
+    lower_g_1 = re.search(re_lone_lower_1, sys)  # Matches on ^{ }:{gate} or :{ }:{gate}
+    lower_g_2 = re.search(re_lone_lower_2, sys)  # Matches on {gate}:{ }$
 
     if upper_g_1 is not None:
-        pos = seq[upper_g_1.end():].find('<')
-        pos_2 = seq[upper_g_1.end():].find('[')
-        if pos != -1 and pos < pos_2:
-            upper = find_sub_sequence(re_upper, upper_g_1.group()) + " "
-            return standardise(seq[:upper_g_1.start()] + seq[upper_g_1.end():upper_g_1.end() + pos + 1] + upper + seq[
-                                                                                                                  upper_g_1.end() + pos + 1:])
-        elif pos_2 != -1:
-            return standardise(seq[:upper_g_1.end() - 2] + seq[upper_g_1.end():])
+        if upper_g_1.group(4) is not None:  # If 1st match condition of upper_g_1 is met.
+            return merge_gates(fix_upper_gate(sys, upper_g_1, 0))
+        else: # If 2nd match condition of upper_g_1 is met.
+            return merge_gates(fix_upper_gate(sys, upper_g_1, 6))
     elif upper_g_2 is not None:
-        pos = seq[:upper_g_2.start()].rfind('>')
-        pos_2 = seq[:upper_g_2.start()].rfind(']')
-        if pos != -1 and pos > pos_2:
-            upper = " " + find_sub_sequence(re_upper, upper_g_2.group())
-            return standardise(seq[:pos] + upper + seq[pos:upper_g_2.start()])
-        elif pos_2 != -1 and pos_2 > pos:
-            return standardise(seq[:pos_2 + 1] + upper_g_2.group()[2:] + seq[pos_2 + 1:upper_g_2.start()])
-    elif lower_g_1 is not None:
-        pos = seq[lower_g_1.end():].find('{')
-        pos_2 = seq[lower_g_1.end():].find('[')
-        if pos != -1 and pos < pos_2:
-            lower = find_sub_sequence(re_lower, lower_g_1.group()) + " "
-            return standardise(seq[:lower_g_1.start()] + seq[lower_g_1.end():lower_g_1.end() + pos + 1] + lower + seq[
-                                                                                                                  lower_g_1.end() + pos + 1:])
-        elif pos_2 != -1:
-            return standardise(seq[:lower_g_1.end() - 1] + seq[lower_g_1.end():])
+        if upper_g_2.group(4) is not None:  # If gate before the upper strand gate had an upper strand after the double strand
+            strand = sys[:upper_g_2.end(4)-1] + " " + upper_g_2.group(6)[1:] + sys[upper_g_2.end(4):upper_g_2.start(6)-2]
+        else:
+            strand = sys[:upper_g_2.end(3)] + upper_g_2.group(6) + sys[upper_g_2.end(3):upper_g_2.start(6)-2]
+        return merge_gates(strand)
+    elif lower_g_1 is not None:  # If 1st match condition of lower_g_1 is met.
+        if lower_g_1.group(4) is not None:
+            return merge_gates(fix_lower_gate(sys, lower_g_1, 0))
+        else:  # If 2nd match condition of lower_g_1 is met.
+            return merge_gates(fix_lower_gate(sys, lower_g_1, 6))
     elif lower_g_2 is not None:
-        pos = seq[:lower_g_2.start()].rfind('}')
-        pos_2 = seq[:lower_g_2.start()].rfind(']')
-        if pos != -1 and pos > pos_2:
-            lower = " " + find_sub_sequence(re_lower, lower_g_2.group())
-            return standardise(seq[:pos] + lower + seq[pos:lower_g_2.start()])
-        elif pos_2 != -1 and pos_2 > pos:
-            return standardise(seq[:lower_g_2.start()] + seq[lower_g_2.start() + 1:])
-    elif format_issue is not None:
-        upper = format_issue.group(3)[1:len(format_issue.group(3)) - 1] + " "
-        return standardise(
-            seq[:format_issue.start(3)] + seq[format_issue.end(3):format_issue.start(6) + 1] + upper + seq[
-                                                                                                       format_issue.start(
-                                                                                                           6) + 1:])
-    elif format_issue_2 is not None:
-        lower = format_issue_2.group(4)[1:len(format_issue_2.group(4)) - 1] + " "
-        new = seq[:format_issue_2.start(4)] + seq[format_issue_2.end(4):format_issue_2.start(5) + 1] + lower + seq[
-                                                                                                               format_issue_2.start(
-                                                                                                                   5) + 1:]
-        return standardise(new)
-    elif format_issue_3 is not None:
-        new = seq[:format_issue_3.start(3)] + seq[format_issue_3.end(3):format_issue_3.start(6)] + format_issue_3.group(
-            3) + seq[format_issue_3.start(6):]
-        return standardise(new)
-    elif format_issue_4 is not None:
-        new = seq[:format_issue_4.start(4)] + ":" + format_issue_4.group(4) + seq[format_issue_4.end(4) + 1:]
-        return standardise(new)
+        if lower_g_2.group(5) is not None: # If gate before the lower strand gate had a lower strand after the double strand
+            strand = sys[:lower_g_2.end(5)-1] + " " + lower_g_2.group(6)[1:]
+        else:
+            strand = sys[:lower_g_2.start(6)-1] + lower_g_2.group(6)
+        return merge_gates(strand)
     else:
-        return seq
+        return sys
+
+
+def reformat(sys):
+    """This function identifies non-standard patterns and re-formats it. For example, {A}<B>[C]<D>{E}::{F}<G>[H] must be rewritten as
+    {A}<B>[C]{E}::{F}<D G>[H] to ensure that the reaction is reversible and the results are clear"""
+    format_1 = re.search(re_format_1, sys)
+    format_2 = re.search(re_format_2, sys)
+    format_3 = re.search(re_format_3, sys)
+    format_4 = re.search(re_format_4, sys)
+
+    if format_1 is not None:
+        upper = format_1.group(3)[1:len(format_1.group(3)) - 1] + " "
+        return reformat(sys[:format_1.start(3)] + sys[format_1.end(3):format_1.start(6) + 1] + upper + sys[format_1.start(6) + 1:])
+    elif format_2 is not None:
+        lower = format_2.group(4)[1:len(format_2.group(4)) - 1] + " "
+        new = sys[:format_2.start(4)] + sys[format_2.end(4):format_2.start(5) + 1] + lower + sys[format_2.start(5) + 1:]
+        return reformat(new)
+    elif format_3 is not None:
+        new = sys[:format_3.start(3)] + sys[format_3.end(3):format_3.start(6)] + format_3.group(3) + sys[format_3.start(6):]
+        return reformat(new)
+    elif format_4 is not None:
+        new = sys[:format_4.start(4)] + ":" + format_4.group(4) + sys[format_4.end(4) + 1:]
+        return reformat(new)
+    else:
+        return sys
+
+
+def standardise(sys):
+    """This function calls three other functions, which act to standardise a system. The format_seq function removes unnecessary spaces and empty
+    brackets, the merge_lone_strands function appropriately merges gates which contain only a single strand, and the final function standardises
+    sequences which can be described in several ways with Lakin's syntax."""
+    sys = tidy(sys)
+    sys = merge_gates(sys)
+    sys = reformat(sys)
+    return sys
 
 
 class BindingRule(stocal.TransitionRule):
@@ -174,7 +205,7 @@ class BindingRule(stocal.TransitionRule):
         if re.search(re_gate, k) is None or re.search(re_gate, l) is None:
             if re.search(re_gate, k) is not None or re.search(re_gate, l) is not None:
                 #TODO: Can I avoid calling this function 4 times? Maybe 2 times instead?
-                yield from self.strand_to_gate_binding(k, l, re_upper_lab, re_lower_lab)
+                yield from self.strand_to_gate_bindin(k, l, re_upper_lab, re_lower_lab)
                 yield from self.strand_to_gate_binding(l, k, re_upper_lab, re_lower_lab)
                 yield from self.strand_to_gate_binding(k, l, re_lower_lab, re_upper_lab)
                 yield from self.strand_to_gate_binding(l, k, re_lower_lab, re_upper_lab)
@@ -183,7 +214,6 @@ class BindingRule(stocal.TransitionRule):
                 yield from self.strand_to_strand_binding(k, l, re_lower_lab, re_upper_lab)
 
     def strand_to_gate_binding(self, k, l, regex_1, regex_2):
-        # print("k", k, "l", l)
         if re.search(regex_1, l) is not None:
             for gate in re.finditer(re_gate, k):
                 for match in re.finditer(regex_2, gate.group()):
@@ -195,7 +225,6 @@ class BindingRule(stocal.TransitionRule):
                                 seq_start = "{" + l[1:match_2.start()] + "}"
                                 seq_end = "{" + l[match_2.end() + 2:len(l) - 1] + "}"
                                 if match.start() > gate.start(2) - i and match.end() < gate.end(2) - i:
-                                    #print("First upper")
                                     u_s_1 = "<" + k[gate.start(2) + 1:match.start() + i] + ">"
                                     u_s_2 = "<" + k[match.end() + 1 + i:gate.end(2) - 1] + ">"
                                     seq = k[:gate.start()] + seq_start + u_s_1 + d_s + seq_end + "::" + gate.group(1) + u_s_2 + k[gate.start(3):]
@@ -204,7 +233,6 @@ class BindingRule(stocal.TransitionRule):
                                     u_s_1 = "<" + k[gate.start(4) + 1:match.start() + i] + ">"
                                     u_s_2 = "<" + k[match.end() + i + 1:gate.end(4) - 1] + ">"
                                     seq = k[:gate.end(3)] + gate.group(5) + "::" + seq_start + u_s_1 + d_s + u_s_2 + seq_end + k[gate.end():]
-                                    #print("second upper seq", seq)
                                     yield self.Transition([k, l], [standardise(seq)], alpha)
                             else:
                                 seq_start = "<" + l[1:match_2.start()] + ">"
@@ -213,7 +241,6 @@ class BindingRule(stocal.TransitionRule):
                                     l_s_1 = "{" + k[gate.start(1) + 1:match.start() + i] + "}"
                                     l_s_2 = "{" + k[match.end() + i + 2:gate.end(1) - 1] + "}"
                                     seq = k[:gate.start(1)] + l_s_1 + seq_start + d_s + seq_end + l_s_2 + ":" + k[gate.start(2):]
-                                    #print("SEQ FIRST LOWER", standardise(seq))
                                     yield self.Transition([k, l], [standardise(seq)], alpha)
                                 elif match.start() > gate.start(5) - i and match.end() < gate.end(5) - i:
                                     l_s_1 = "{" + k[gate.start(5) + 1:match.start() + i] + "}"
@@ -228,19 +255,19 @@ class BindingRule(stocal.TransitionRule):
                 if match_1.group() == match_2.group():
                     d_s = "[" + match_2.group() + "^]"
                     if regex_1 == re_upper_lab:
-                        part_a = l[:match_2.start()] + re.search(re_closing, l[match_2.start():]).group() + \
-                             k[:match_1.start()] + re.search(re_closing, k[match_1.start():]).group()
-                        part_b = re.search(re_opening, k[:match_1.end() + 1]).group() + k[match_1.end() + 1:] +\
-                                 re.search(re_opening, l[:match_2.end()]).group() + l[match_2.end() + 2:]
+                        part_a = l[:match_2.start()] + re.search(re_close, l[match_2.start():]).group() + \
+                             k[:match_1.start()] + re.search(re_close, k[match_1.start():]).group()
+                        part_b = re.search(re_open, k[:match_1.end() + 1]).group() + k[match_1.end() + 1:] + \
+                                 re.search(re_open, l[:match_2.end()]).group() + l[match_2.end() + 2:]
                     else:
-                        part_a = k[:match_1.start()] + re.search(re_closing, k[match_1.start():]).group()+\
-                                 l[:match_2.start()] + re.search(re_closing, l[match_2.start():]).group()
-                        part_b = re.search(re_opening, l[:match_2.end()]).group() + l[match_2.end() + 1:] +\
-                            re.search(re_opening, k[:match_1.end() + 1]).group() + k[match_1.end() + 2:]
+                        part_a = k[:match_1.start()] + re.search(re_close, k[match_1.start():]).group() +\
+                                 l[:match_2.start()] + re.search(re_close, l[match_2.start():]).group()
+                        part_b = re.search(re_open, l[:match_2.end()]).group() + l[match_2.end() + 1:] + \
+                                 re.search(re_open, k[:match_1.end() + 1]).group() + k[match_1.end() + 2:]
                     # print("part A", part_a)
                     # print("part B", part_b)
                     # print("final", format_seq(part_a + d_s + part_b))
-                    yield self.Transition([k, l], [format_seq(part_a + d_s + part_b)], alpha)
+                    yield self.Transition([k, l], [tidy(part_a + d_s + part_b)], alpha)
 
 
 class UnbindingRule(stocal.TransitionRule):
@@ -252,7 +279,7 @@ class UnbindingRule(stocal.TransitionRule):
         yield from self.toehold_unbinding(kl)
 
     def toehold_unbinding(self, kl):
-        kl = format_seq(kl)
+        kl = tidy(kl)
         # print("kl", kl)
         for gate in re.finditer(re_gate, kl):
             d_s = re.search(re_short_double_th, gate.group())
@@ -275,7 +302,7 @@ class UnbindingRule(stocal.TransitionRule):
                     else:
                         part_b = part_b + kl[gate.end():]
 
-                #print("FINAL A:", standardise(part_a), "FINAL B:", standardise(part_b))
+                print("FINAL A:", standardise(part_a), "FINAL B:", standardise(part_b))
                 yield self.Transition([kl], [standardise(part_a), standardise(part_b)], alpha)
 
 
@@ -287,7 +314,7 @@ class CoveringRule(stocal.TransitionRule):
         yield from self.toehold_covering(k)
 
     def toehold_covering(self, k):
-        k = format_seq(k)
+        k = tidy(k)
         for gate in re.finditer(re_gate, k):
             d_s = re.search(re_double, gate.group())
             pre_cover = re.search(re_pre_cover, gate.group())
@@ -297,7 +324,7 @@ class CoveringRule(stocal.TransitionRule):
                 updated_gate = gate.group()[:pre_cover.start()] + gate.group()[
                                                                   pre_cover.end() + 2: pre_cover.end() + th_pos] + \
                                ">[" + pre_cover.group() + "^ " + gate.group()[d_s.start() + 1:]
-                updated_seq = k[:gate.start()] + format_seq(updated_gate) + k[gate.end():]
+                updated_seq = k[:gate.start()] + tidy(updated_gate) + k[gate.end():]
                 # print(updated_seq, "updated seq")
                 yield self.Transition([k], [updated_seq], alpha)
             if post_cover is not None:
@@ -305,7 +332,7 @@ class CoveringRule(stocal.TransitionRule):
                 updated_gate = gate.group()[:d_s.end() - 1] + " " + post_cover.group() + "]<" + \
                                gate.group()[post_cover.end() + 1: post_cover.end() + th_c_pos + 1] + \
                                gate.group()[post_cover.end() + th_c_pos + 4:]
-                updated_seq = k[:gate.start()] + format_seq(updated_gate) + k[gate.end():]
+                updated_seq = k[:gate.start()] + tidy(updated_gate) + k[gate.end():]
                 #(updated_seq, "updated seq")
                 yield self.Transition([k], [updated_seq], alpha)
 
@@ -315,11 +342,11 @@ class MigrationRule(stocal.TransitionRule):
     Transition = stocal.MassAction
 
     def novel_reactions(self, k):
-        k = format_seq(k)
+        k = tidy(k)
         yield from self.migrate(k, re_lower_migrate, re_lower)
         yield from self.migrate(k, re_upper_migrate, re_upper)
-        yield from self.migrate_rev(k, re_lower_migrate_rev, re_lower)
-        yield from self.migrate_rev(k, re_upper_migrate_rev, re_upper)
+        yield from self.migrate_rev(k, re_lower_migrate_r, re_lower)
+        yield from self.migrate_rev(k, re_upper_migrate_r, re_upper)
 
     def migrate(self, k, regex_1, regex_2):
         print("K:  ", k)
@@ -339,7 +366,7 @@ class MigrationRule(stocal.TransitionRule):
                 strand_1 = "<" + strand_1[pos:] + ">"
                 strand_2 = "<" + find_sub_sequence(re_upper, match.group()[mid_point:]) + " " + match.group(1) + ">"
                 bracket = ":"
-            seq = format_seq(k[:match.start()] + d_s_1 + strand_1 + bracket + strand_2 + d_s_2 + k[match.end():])
+            seq = tidy(k[:match.start()] + d_s_1 + strand_1 + bracket + strand_2 + d_s_2 + k[match.end():])
             print("seq", seq)
             yield self.Transition([k], [seq], alpha)
 
@@ -361,7 +388,7 @@ class MigrationRule(stocal.TransitionRule):
                 strand_1 = "<" + match.group(1) + " " + find_sub_sequence(regex_2, match.group()) + ">"
                 strand_2 = "<" + strand_2[:pos_2] + ">"
                 bracket = ":"
-            seq = format_seq(k[:match.start()] + d_s_1 + strand_1 + bracket + strand_2 + d_s_2 + k[match.end():])
+            seq = tidy(k[:match.start()] + d_s_1 + strand_1 + bracket + strand_2 + d_s_2 + k[match.end():])
             print("seq", seq)
             yield self.Transition([k], [seq], alpha)
 
@@ -371,7 +398,7 @@ class ReductionRule(stocal.TransitionRule):
     Transition = stocal.MassAction
 
     def novel_reactions(self, k):
-        k = format_seq(k)
+        k = tidy(k)
         yield from self.upper_reduction(k, re_reduce_upper, re_upper)
 
     def upper_reduction(self, k, regex_1, regex_2):
@@ -389,10 +416,10 @@ class ReductionRule(stocal.TransitionRule):
             print(mid_point)
             print("match reduce", match)
             if regex_2 == re_upper:
-                strand_1 = format_seq("<" + strand_1 + ">")
+                strand_1 = tidy("<" + strand_1 + ">")
             else:
-                strand_1 = format_seq("{" + strand_1 + "}")
-            strand_2 = format_seq(k[:match.start()] + d_s + k[match.end():])
+                strand_1 = tidy("{" + strand_1 + "}")
+            strand_2 = tidy(k[:match.start()] + d_s + k[match.end():])
             print("strand_1", strand_1, "strand_2", strand_2)
 
             yield self.Transition([k], [k], alpha)
@@ -409,6 +436,8 @@ if __name__ == '__main__':
     # initial_state = {"<A>{B}[D^]<C^ F>{C^* G}": 60}
     # initial_state = {"<Z Y C>[B]::<E F G>::[K]": 60}
     initial_state = {"{A}<B>[C^]<D>{E}::{F}<G>[H^]<I>{J}::{K}<L>[M^]<N>{O}": 500}  # THIS ONE
+    initial_state = {"<L1 N^ S R1>": 60, "{L' N^*}<L>[S R2]<R>{R'}": 60}
+    initial_state = {"{L'}<L1>[N^]<S R1>:<L>[S R2]<R>{R'}" : 60}
     #initial_state = {'{K M^* O}': 500, '{F H^* J}': 500, '{A C^* E}': 500, '<B C^ D G H^ I L M^ N>': 500}
     #initial_state = {"{A}<B>[C^]<D>:{E F^* G}<H>[I]<J>{K}": 60, "<Z F^ X>": 60}
     # initial_state = {"{A}<B>[C^]{E}::{K}<D G H^ I L>[M^]<O>{Z N^* G}" :600, "<F N^ J>":600}
@@ -423,10 +452,14 @@ if __name__ == '__main__':
 
     initial_state = {standardise(key): value for key, value in initial_state.items()}
     #print("init 2", initial_state)
-
+    # re_lone_upper_1 = re.compile(f"^({re_upper.pattern})::|(?<=::)({re_upper.pattern})::")
+    #x = "<A B C>::<F G>[H^ I]{L}::<A B C>::<H>[Y^]<N>{Z}::<A B C>"
+    x = "{F}:<A B C>[D^]<M>{J}::<A B>::{F}<F>[G^]"
+    print("X", x)
+    z = standardise(x)
+    print("STANDARDISE", z)
     traj = process.sample(initial_state, tmax=100.)
     for _ in traj:
-        # print("")
         print(traj.time, traj.state)
 
 # Unused code is below, in case of extensions being needed or previous regex being needed again.
@@ -624,3 +657,70 @@ if __name__ == '__main__':
 #                             seq = k[:gate.end(4)] + ":" + l_s_1 + "<" + seq_start + ">" + d_s + "<" + seq_end + ">" + l_s_2 + k[gate.end():]
 #                             print("SEQ SECOND LOWER", seq)
 #                             yield self.Transition([k, l], [format_seq(seq)], alpha)
+
+# def standardise(seq):
+#     """Identifies gates which only contain a single upper or lower strand, and adds this strand to an adjacent gate, with
+#     the following gate taking priority over the previous gate"""
+#     seq = format_seq(seq)
+#
+#     upper_g_1 = re.search(re_lone_upper_1, seq)
+#     upper_g_2 = re.search(re_lone_upper_2, seq)
+#     lower_g_1 = re.search(re_lone_lower_1, seq)
+#     lower_g_2 = re.search(re_lone_lower_2, seq)
+#     format_err_1 = re.search(re_format_err_1, seq)
+#     format_err_2 = re.search(re_format_err_2, seq)
+#     format_err_3 = re.search(re_format_err_3, seq)
+#     format_err_4 = re.search(re_format_err_4, seq)
+#
+#     if upper_g_1 is not None:
+#         pos = seq[upper_g_1.end():].find('<')
+#         pos_2 = seq[upper_g_1.end():].find('[')
+#         if pos != -1 and pos < pos_2:
+#             upper = find_sub_sequence(re_upper, upper_g_1.group()) + " "
+#             return standardise(seq[:upper_g_1.start()] + seq[upper_g_1.end():upper_g_1.end() + pos + 1] + upper + seq[upper_g_1.end() + pos + 1:])
+#         elif pos_2 != -1:
+#             return standardise(seq[:upper_g_1.end() - 2] + seq[upper_g_1.end():])
+#     elif upper_g_2 is not None:
+#         pos = seq[:upper_g_2.start()].rfind('>')
+#         pos_2 = seq[:upper_g_2.start()].rfind(']')
+#         if pos != -1 and pos > pos_2:
+#             upper = " " + find_sub_sequence(re_upper, upper_g_2.group())
+#             return standardise(seq[:pos] + upper + seq[pos:upper_g_2.start()])
+#         elif pos_2 != -1 and pos_2 > pos:
+#             return standardise(seq[:pos_2 + 1] + upper_g_2.group()[2:] + seq[pos_2 + 1:upper_g_2.start()])
+#     elif lower_g_1 is not None:
+#         pos = seq[lower_g_1.end():].find('{')
+#         pos_2 = seq[lower_g_1.end():].find('[')
+#         if pos != -1 and pos < pos_2:
+#             lower = find_sub_sequence(re_lower, lower_g_1.group()) + " "
+#             return standardise(seq[:lower_g_1.start()] + seq[lower_g_1.end():lower_g_1.end() + pos + 1] + lower + seq[lower_g_1.end() + pos + 1:])
+#         elif pos_2 != -1:
+#             return standardise(seq[:lower_g_1.end() - 1] + seq[lower_g_1.end():])
+#     elif lower_g_2 is not None:
+#         pos = seq[:lower_g_2.start()].rfind('}')
+#         pos_2 = seq[:lower_g_2.start()].rfind(']')
+#         if pos != -1 and pos > pos_2:
+#             lower = " " + find_sub_sequence(re_lower, lower_g_2.group())
+#             return standardise(seq[:pos] + lower + seq[pos:lower_g_2.start()])
+#         elif pos_2 != -1 and pos_2 > pos:
+#             return standardise(seq[:lower_g_2.start()] + seq[lower_g_2.start() + 1:])
+#     elif format_err_1 is not None:
+#         upper = format_err_1.group(3)[1:len(format_err_1.group(3)) - 1] + " "
+#         return standardise(
+#             seq[:format_err_1.start(3)] + seq[format_err_1.end(3):format_err_1.start(6) + 1] + upper + seq[format_err_1.start(6) + 1:])
+#     elif format_err_2 is not None:
+#         lower = format_err_2.group(4)[1:len(format_err_2.group(4)) - 1] + " "
+#         new = seq[:format_err_2.start(4)] + seq[format_err_2.end(4):format_err_2.start(5) + 1] + lower + seq[format_err_2.start(5) + 1:]
+#         return standardise(new)
+#     elif format_err_3 is not None:
+#         new = seq[:format_err_3.start(3)] + seq[format_err_3.end(3):format_err_3.start(6)] + format_err_3.group(3) + seq[format_err_3.start(6):]
+#         return standardise(new)
+#     elif format_err_4 is not None:
+#         new = seq[:format_err_4.start(4)] + ":" + format_err_4.group(4) + seq[format_err_4.end(4) + 1:]
+#         return standardise(new)
+#     else:
+#         return seq
+
+# re_lone_upper_1 = re.compile(f"^{re_upper.pattern}::|(?<=::){re_upper.pattern}::")
+# re_lone_upper_2 = re.compile(f"::({re_upper.pattern})$")
+# re_lone_lower_1 = re.compile(f"^({re_lower.pattern}):(?=[^:])|(?<=[^:]:)({re_lower.pattern}):(?=[^:])")
