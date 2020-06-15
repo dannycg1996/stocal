@@ -65,9 +65,9 @@ re_upper_migrate = re.compile(
 re_lower_migrate = re.compile(
     fr"{re_double.pattern}({{(\w+)[^<>:]*?\}})::{re_lower.pattern}(\[(\3)[^<>]*?\w\s*\])")  # Matches where lower strand migration can occur.
 re_upper_migrate_r = re.compile(
-    fr"(?:\[\w[^<>]*?\s(\w+)\s*\]){re_upper.pattern}:<[^<>:]*?\1\s*>{re_double.pattern}")  # Matches where upper strand rev migration can occur.
+    fr"(\[\w[^<>]*?\s(\w+)\s*\]){re_upper.pattern}:(<[^<>:]*?(\2)\s*>){re_double.pattern}")  # Matches where upper strand rev migration can occur.
 re_lower_migrate_r = re.compile(
-    fr"(?:\[\w[^<>]*?\s(\w+)\s*\]){re_lower.pattern}::{{[^<>:]*?\1\s*}}{re_double.pattern}") # Matches where lower strand rev migration can occur.
+    fr"(\[\w[^<>]*?\s(\w+)\s*\]){re_lower.pattern}::({{[^<>:]*?(\2)\s*}}){re_double.pattern}") # Matches where lower strand rev migration can occur.
 
 re_reduce_upper = re.compile(
     fr"{re_double.pattern}<(\w+)[^<>:]*?>:{re_upper.pattern}\[\1]{re_upper.pattern}?{re_lower.pattern}?")
@@ -327,14 +327,12 @@ class CoveringRule(stocal.TransitionRule):
             pre_cover = re.search(re_pre_cover, gate.group())
             post_cover = re.search(re_post_cover, gate.group())
             if pre_cover is not None:
-                print("yes")
                 updated_gate = gate.group()[:pre_cover.start()] + gate.group()[pre_cover.end() + 2: pre_cover.start(2)] + ">[" + \
                     pre_cover.group() + "^ " + gate.group()[gate.start(3)+1:]
                 updated_sys = k[:gate.start()] + tidy(updated_gate) + k[gate.end():]
                 print(updated_sys, "updated seq")
                 yield self.Transition([k], [updated_sys], alpha)
             if post_cover is not None:
-                print("yes")
                 updated_gate = gate.group()[:gate.end(3) - 1] + " " + post_cover.group() + "^]<" + \
                                gate.group()[post_cover.end()+1:gate.end(4)] + "{" + gate.group()[post_cover.end(2)+2:]
                 updated_sys = k[:gate.start()] + tidy(updated_gate) + k[gate.end():]
@@ -347,6 +345,7 @@ class MigrationRule(stocal.TransitionRule):
     Transition = stocal.MassAction
 
     def novel_reactions(self, k):
+        #  TODO: Does the overhang have to be a double overhang (i.e. what if L1 is missing in the example?)
         k = tidy(k)
         yield from self.migrate(k, re_lower_migrate, re_lower)
         yield from self.migrate(k, re_upper_migrate, re_upper)
@@ -372,21 +371,16 @@ class MigrationRule(stocal.TransitionRule):
 
     def migrate_rev(self, k, regex_1, regex_2):
         for match in re.finditer(regex_1, k):
-            print(match, "MATCH")
-            mid_point = match.group().find(':')
-            d_s_1 = find_sub_sequence(re_double, match.group())
-            pos = d_s_1.rfind(match.group(1))
-            d_s_1 = "[" + d_s_1[:pos] + "]"
-            d_s_2 = "[" + match.group(1) + " " + find_sub_sequence(re_double, match.group()[mid_point:]) + "]"
-            strand_2 = find_sub_sequence(regex_2, match.group()[mid_point:])
-            pos_2 = strand_2.rfind(match.group(1))
+            i = match.start()
+            d_s_1 = match.group()[:match.start(2)-i] + "]"
+            d_s_2 = "[" + match.group(2) + " " + match.group(6)[1:]
             if regex_2 == re_lower:
-                strand_1 = "{" + match.group(1) + " " + find_sub_sequence(regex_2, match.group()) + "}"
-                strand_2 = "{" + strand_2[:pos_2] + "}"
+                strand_1 = "{" + match.group(2) + " " + match.group(3)[1:]
+                strand_2 = match.group()[match.start(4)-i: match.start(5)-i] + "}"
                 bracket = "::"
             else:
-                strand_1 = "<" + match.group(1) + " " + find_sub_sequence(regex_2, match.group()) + ">"
-                strand_2 = "<" + strand_2[:pos_2] + ">"
+                strand_1 = "<" + match.group(2) + " " + match.group(3)[1:]
+                strand_2 = match.group()[match.start(4)-i: match.start(5)-i] + ">"
                 bracket = ":"
             seq = tidy(k[:match.start()] + d_s_1 + strand_1 + bracket + strand_2 + d_s_2 + k[match.end():])
             print("seq", seq)
@@ -407,6 +401,7 @@ class ReductionRule(stocal.TransitionRule):
         for match in re.finditer(regex_1, k):
             mid_point = match.group().find(':')
             marker = match.group()[mid_point:].find(']')
+
             end = re.search(regex_2, match.group()[marker:])
             strand_1 = find_sub_sequence(regex_2, match.group()[mid_point:]) + " " + match.group(1) + " " + end.group()[
                                                                                                             1:len(
@@ -441,6 +436,7 @@ if __name__ == '__main__':
     initial_state = {"{N^*}<R N^>[S]<A B C>{D E}" : 60}
     #initial_state = {"{L'}<L>[S1]<S R2>:<L1>[S S2]<R>{R'}":60}
     #initial_state = {"{L'}<L>[S1]{S R2}::{L1}[S S2]<R>{R'}":60}
+    initial_state = {"{L'}<L>[S1 S]<R2>:<L1 S>[S2]<R>{R'}": 60}
     #initial_state = {'{K M^* O}': 500, '{F H^* J}': 500, '{A C^* E}': 500, '<B C^ D G H^ I L M^ N>': 500}
     #initial_state = {"{A}<B>[C^]<D>:{E F^* G}<H>[I]<J>{K}": 60, "<Z F^ X>": 60}
     # initial_state = {"{A}<B>[C^]{E}::{K}<D G H^ I L>[M^]<O>{Z N^* G}" :600, "<F N^ J>":600}
