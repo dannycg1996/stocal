@@ -61,9 +61,9 @@ re_post_cover = re.compile(r'(?<=\<)\s*?(\w+)(?=\^.*>\s*\{\s*(\1)\^\*)')  # Matc
 
 #    initial_state = {"{L'}<L>[S1]<S R2>:<L1>[S S2]<R>{R'}":60}
 re_upper_migrate = re.compile(
-    fr"{re_double.pattern}<(\w+)[^<>:]*?>:{re_upper.pattern}(?:\[(\2)[^<>]*?\w\s*\])")   # Matches where upper strand migration can occur.
+    fr"{re_double.pattern}(<(\w+)[^<>:]*?>):{re_upper.pattern}(\[(\3)[^<>]*?\w\s*\])")   # Matches where upper strand migration can occur.
 re_lower_migrate = re.compile(
-    fr"{re_double.pattern}{{(\w+)[^<>:]*?\}}::{re_lower.pattern}(?:\[(\2)[^<>]*?\w\s*\])")  # Matches where lower strand migration can occur.
+    fr"{re_double.pattern}({{(\w+)[^<>:]*?\}})::{re_lower.pattern}(\[(\3)[^<>]*?\w\s*\])")  # Matches where lower strand migration can occur.
 re_upper_migrate_r = re.compile(
     fr"(?:\[\w[^<>]*?\s(\w+)\s*\]){re_upper.pattern}:<[^<>:]*?\1\s*>{re_double.pattern}")  # Matches where upper strand rev migration can occur.
 re_lower_migrate_r = re.compile(
@@ -354,23 +354,17 @@ class MigrationRule(stocal.TransitionRule):
         yield from self.migrate_rev(k, re_upper_migrate_r, re_upper)
 
     def migrate(self, k, regex_1, regex_2):
-        print("K:  ", k)
         for match in re.finditer(regex_1, k):
-            print(match, "match")
-            mid_point = match.group().find(':')
-            strand_1 = find_sub_sequence(regex_2, match.group())
-            d_s_2 = find_sub_sequence(re_double, match.group()[mid_point:])
-            pos = re.search(match.group(1), strand_1).end()
-            pos_2 = re.search(match.group(1), d_s_2).end()
-            d_s_1 = "[" + find_sub_sequence(re_double, match.group()) + " " + match.group(1) + "]"
-            d_s_2 = "[" + d_s_2[pos_2:] + "]"
+            i = match.start()
+            d_s_1 = match.group(1)[:len(match.group(1))-1] + " " + match.group(3) + "]"
+            d_s_2 = "[" + match.group()[match.end(6)-i:match.end(5)-i]
             if regex_2 == re_lower:
-                strand_1 = "{" + strand_1[pos:] + "}"
-                strand_2 = "{" + find_sub_sequence(re_lower, match.group()[mid_point:]) + " " + match.group(1) + "}"
+                strand_1 = "{" + match.group()[match.end(3)-i:match.end(2)-i]
+                strand_2 = match.group(4)[:len(match.group(4))-1] + " " + match.group(3) + "}"
                 bracket = "::"
             else:
-                strand_1 = "<" + strand_1[pos:] + ">"
-                strand_2 = "<" + find_sub_sequence(re_upper, match.group()[mid_point:]) + " " + match.group(1) + ">"
+                strand_1 = "<" + match.group()[match.end(3)-i:match.end(2)-i]
+                strand_2 = match.group(4)[:len(match.group(4))-1] + " " + match.group(3) + ">"
                 bracket = ":"
             seq = tidy(k[:match.start()] + d_s_1 + strand_1 + bracket + strand_2 + d_s_2 + k[match.end():])
             print("seq", seq)
@@ -445,7 +439,8 @@ if __name__ == '__main__':
     initial_state = {"<L1 N^ S R1>": 60, "{L' N^*}<L>[S R2]<R>{R'}": 60}
     initial_state = {"{L'}<L1>[N^]<S R1>:<L>[S R2]<R>{R'}" : 60}
     initial_state = {"{N^*}<R N^>[S]<A B C>{D E}" : 60}
-    initial_state = {"{L'}<L>[S1]<S R2>:<L1>[S S2]<R>{R'}":60}
+    #initial_state = {"{L'}<L>[S1]<S R2>:<L1>[S S2]<R>{R'}":60}
+    #initial_state = {"{L'}<L>[S1]{S R2}::{L1}[S S2]<R>{R'}":60}
     #initial_state = {'{K M^* O}': 500, '{F H^* J}': 500, '{A C^* E}': 500, '<B C^ D G H^ I L M^ N>': 500}
     #initial_state = {"{A}<B>[C^]<D>:{E F^* G}<H>[I]<J>{K}": 60, "<Z F^ X>": 60}
     # initial_state = {"{A}<B>[C^]{E}::{K}<D G H^ I L>[M^]<O>{Z N^* G}" :600, "<F N^ J>":600}
