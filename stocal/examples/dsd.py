@@ -70,7 +70,9 @@ re_lower_migrate_r = re.compile(
     fr"(\[\w[^<>]*?\s(\w+)\s*\]){re_lower.pattern}::({{[^<>:]*?(\2)\s*}}){re_double.pattern}") # Matches where lower strand rev migration can occur.
 
 re_reduce_upper = re.compile(
-    fr"{re_double.pattern}<(\w+)[^<>:]*?>:{re_upper.pattern}\[\1]{re_upper.pattern}?{re_lower.pattern}?")
+    fr"{re_double.pattern}<(\w+)([^<>:]*?)>:{re_upper.pattern}\[(\2)\]{re_upper.pattern}?{re_lower.pattern}?")
+re_reduce_lower = re.compile(
+    fr"{re_double.pattern}{{(\w+)([^{{}}:]*?)}}::{re_lower.pattern}\[(\2)\]{re_upper.pattern}?{re_lower.pattern}?")
 #TODO: Finish the reduce rule.
 
 re_format_1 = re.compile(
@@ -91,10 +93,13 @@ def find_sub_sequence(regex, seq):
     return ""
 
 
-def find_sub_sequence_2(seq):
+def find_sub_seq(seq, trunc=True):
     """Takes a sub sequence, and either returns the regex match (without the first and last chars) or a blank string '' """
     if seq is not None:
-        return seq[1:len(seq) - 1]
+        if trunc is True:
+            return seq[1:len(seq) - 1]
+        else:
+            return seq
     return ""
 
 def tidy(sys):
@@ -287,10 +292,10 @@ class UnbindingRule(stocal.TransitionRule):
             d_s = re.search(re_short_double_th, gate.group())
             if d_s is not None:
                 label = re.search(re_double_lab, d_s.group()).group()
-                upper_1 = find_sub_sequence_2(gate.group(2))
-                lower_1 = find_sub_sequence_2(gate.group(1))
-                upper_2 = find_sub_sequence_2(gate.group(4))
-                lower_2 = find_sub_sequence_2(gate.group(5))
+                upper_1 = find_sub_seq(gate.group(2))
+                lower_1 = find_sub_seq(gate.group(1))
+                upper_2 = find_sub_seq(gate.group(4))
+                lower_2 = find_sub_seq(gate.group(5))
                 #upper_1 = find_sub_sequence(re_upper, gate.group()[:d_s.start()])
                 #lower_1 = find_sub_sequence(re_lower, gate.group()[:d_s.start()])
                 # upper_2 = find_sub_sequence(re_upper, gate.group()[d_s.end():])
@@ -393,35 +398,27 @@ class ReductionRule(stocal.TransitionRule):
 
     def novel_reactions(self, k):
         k = tidy(k)
-        yield from self.upper_reduction(k, re_reduce_upper, re_upper)
+        yield from self.reduction_fwd(k, re_reduce_upper)
+        yield from self.reduction_fwd(k, re_reduce_lower)
 
-    def upper_reduction(self, k, regex_1, regex_2):
-        #TODO: Finish this
-        print("K:", k)
+    def reduction_fwd(self, k, regex_1):
+        print("K reduce:", k)
         for match in re.finditer(regex_1, k):
-            mid_point = match.group().find(':')
-            marker = match.group()[mid_point:].find(']')
-
-            end = re.search(regex_2, match.group()[marker:])
-            strand_1 = find_sub_sequence(regex_2, match.group()[mid_point:]) + " " + match.group(1) + " " + end.group()[
-                                                                                                            1:len(
-                                                                                                                end.group()) - 1]
-            d_s = "[" + find_sub_sequence(re_double, match.group()) + " " + match.group(1) + "]"
-            print(d_s, "d_s")
-            print(mid_point)
-            print("match reduce", match)
-            if regex_2 == re_upper:
-                strand_1 = tidy("<" + strand_1 + ">")
+            strand_1 = find_sub_seq(match.group(4)) + " " + match.group(2) + " "
+            start = k[:match.end(1)-1] + " " + match.group(2) + "]"
+            if regex_1 == re_reduce_upper:
+                strand_1 = tidy("<" + strand_1 + find_sub_seq(match.group(6)) + ">")
+                strand_2 = tidy(start + "<" + find_sub_seq(match.group(3), False) + ">" + find_sub_seq(match.group(7), False) + k[match.end():])
             else:
-                strand_1 = tidy("{" + strand_1 + "}")
-            strand_2 = tidy(k[:match.start()] + d_s + k[match.end():])
+                strand_1 = tidy("{" + strand_1 + find_sub_seq(match.group(7)) + "}")
+                strand_2 = tidy(start + " " + find_sub_seq(match.group(6), False) + "{" + find_sub_seq(match.group(3), False) + "}" + k[match.end():])
             print("strand_1", strand_1, "strand_2", strand_2)
 
-            yield self.Transition([k], [k], alpha)
+            yield self.Transition([k], [strand_1 , strand_2], alpha)
 
 
 process = stocal.Process(
-    rules=[MigrationRule()]
+    rules=[ReductionRule()]
 )
 
 if __name__ == '__main__':
@@ -437,6 +434,9 @@ if __name__ == '__main__':
     #initial_state = {"{L'}<L>[S1]<S R2>:<L1>[S S2]<R>{R'}":60}
     #initial_state = {"{L'}<L>[S1]{S R2}::{L1}[S S2]<R>{R'}":60}
     initial_state = {"{L'}<L>[S1 S]<R2>:<L1 S>[S2]<R>{R'}": 60}
+    initial_state = {"{L'}<L>[S1]<S R>:<L2>[S]<R2>{R'}" : 60}
+    #initial_state = {"{L'}<L>[S1]{S R}::{L2}[S]<R2>{R'}" : 60}
+
     #initial_state = {'{K M^* O}': 500, '{F H^* J}': 500, '{A C^* E}': 500, '<B C^ D G H^ I L M^ N>': 500}
     #initial_state = {"{A}<B>[C^]<D>:{E F^* G}<H>[I]<J>{K}": 60, "<Z F^ X>": 60}
     # initial_state = {"{A}<B>[C^]{E}::{K}<D G H^ I L>[M^]<O>{Z N^* G}" :600, "<F N^ J>":600}
