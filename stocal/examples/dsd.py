@@ -73,6 +73,13 @@ re_reduce_upper = re.compile(
     fr"{re_double.pattern}<(\w+)([^<>:]*?)>:{re_upper.pattern}\[(\2)\]{re_upper.pattern}?{re_lower.pattern}?")
 re_reduce_lower = re.compile(
     fr"{re_double.pattern}{{(\w+)([^{{}}:]*?)}}::{re_lower.pattern}\[(\2)\]{re_upper.pattern}?{re_lower.pattern}?")
+re_reduce_upper_r = re.compile(
+    fr"{re_lower.pattern}?{re_upper.pattern}?\[(\w)\]{re_upper.pattern}?:<([^<>:]*?)(\3)>{re_double.pattern}"
+)
+re_reduce_lower_r = re.compile(
+    fr"{re_lower.pattern}?{re_upper.pattern}?\[(\w)\]{re_lower.pattern}?::{{([^<>:]*?)(\3)}}{re_double.pattern}"
+)
+#"{L'}<L>[S]<R S>:<L2>[S1]<L>{L'}" : 60
 #TODO: Finish the reduce rule.
 
 re_format_1 = re.compile(
@@ -101,6 +108,7 @@ def find_sub_seq(seq, trunc=True):
         else:
             return seq
     return ""
+
 
 def tidy(sys):
     """Remove unnecessary whitespaces and empty brackets"""
@@ -400,6 +408,8 @@ class ReductionRule(stocal.TransitionRule):
         k = tidy(k)
         yield from self.reduction_fwd(k, re_reduce_upper)
         yield from self.reduction_fwd(k, re_reduce_lower)
+        yield from self.reduction_rev(k, re_reduce_upper_r)
+        yield from self.reduction_rev(k, re_reduce_lower_r)
 
     def reduction_fwd(self, k, regex_1):
         print("K reduce:", k)
@@ -415,6 +425,18 @@ class ReductionRule(stocal.TransitionRule):
             print("strand_1", strand_1, "strand_2", strand_2)
 
             yield self.Transition([k], [strand_1 , strand_2], alpha)
+
+    def reduction_rev(self, k, regex_1):
+        for match in re.finditer(regex_1, k):
+            if regex_1 == re_reduce_upper_r:
+                strand_1 = "<" + find_sub_seq(match.group(2)) + " " + match.group(3) + " " + find_sub_seq(match.group(4)) + ">"
+                strand_2 = find_sub_seq(match.group(1), False) + "<" + find_sub_seq(match.group(5), False) + ">[" + match.group(3) + " " + match.group(7)[1:]
+            else:
+                strand_1 = "{" + find_sub_seq(match.group(1))  + " " + match.group(3) + " " + find_sub_seq(match.group(4)) + "}"
+                strand_2 = "{" + find_sub_seq(match.group(5), False) + "}" + find_sub_seq(match.group(2), False) + "[" + match.group(3) + " " + match.group(7)[1:]
+            strand_2 = k[:match.start()] + strand_2 + k[match.end():]
+            yield self.Transition([k], [tidy(strand_1), tidy(strand_2)], alpha)
+
 
 
 process = stocal.Process(
@@ -435,6 +457,8 @@ if __name__ == '__main__':
     #initial_state = {"{L'}<L>[S1]{S R2}::{L1}[S S2]<R>{R'}":60}
     initial_state = {"{L'}<L>[S1 S]<R2>:<L1 S>[S2]<R>{R'}": 60}
     initial_state = {"{L'}<L>[S1]<S R>:<L2>[S]<R2>{R'}" : 60}
+    initial_state = {"{L'}<L>[S]<L2>:<R S>[S1]<R2>{R'}" : 60}
+    initial_state = {"{L'}<L>[S]{L2}::{R S}[S1]<R2>{R'}" : 60}
     #initial_state = {"{L'}<L>[S1]{S R}::{L2}[S]<R2>{R'}" : 60}
 
     #initial_state = {'{K M^* O}': 500, '{F H^* J}': 500, '{A C^* E}': 500, '<B C^ D G H^ I L M^ N>': 500}
