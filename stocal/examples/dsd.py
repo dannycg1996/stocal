@@ -224,7 +224,7 @@ class BindingRule(stocal.TransitionRule):
         if re.search(re_gate, k) is None or re.search(re_gate, l) is None:
             if re.search(re_gate, k) is not None or re.search(re_gate, l) is not None:
                 # TODO: Can I avoid calling this function 4 times? Maybe 2 times instead?
-                yield from self.strand_to_gate_bindin(k, l, re_upper_lab, re_lower_lab)
+                yield from self.strand_to_gate_binding(k, l, re_upper_lab, re_lower_lab)
                 yield from self.strand_to_gate_binding(l, k, re_upper_lab, re_lower_lab)
                 yield from self.strand_to_gate_binding(k, l, re_lower_lab, re_upper_lab)
                 yield from self.strand_to_gate_binding(l, k, re_lower_lab, re_upper_lab)
@@ -264,7 +264,7 @@ class BindingRule(stocal.TransitionRule):
                                 elif match.start() > gate.start(5) - i and match.end() < gate.end(5) - i:
                                     l_s_1 = "{" + k[gate.start(5) + 1:match.start() + i] + "}"
                                     l_s_2 = "{" + k[match.end() + i + 2:gate.end(5) - 1] + "}"
-                                    seq = k[:gate.end(4)] + ":" + l_s_1 + + seq_start + d_s + seq_end + l_s_2 + k[gate.end():] #("SEQ SECOND LOWER", seq)
+                                    seq = k[:gate.end(4)] + ":" + l_s_1 + seq_start + d_s + seq_end + l_s_2 + k[gate.end():] #("SEQ SECOND LOWER", seq)
                                     yield self.Transition([k, l], [standardise(seq)], alpha)
 
     def strand_to_strand_binding(self, k, l, regex_1, regex_2):
@@ -435,18 +435,16 @@ class ReductionRule(stocal.TransitionRule):
                 strand_1 = "{" + find_sub_seq(match.group(1))  + " " + match.group(3) + " " + find_sub_seq(match.group(4)) + "}"
                 strand_2 = "{" + find_sub_seq(match.group(5), False) + "}" + find_sub_seq(match.group(2), False) + "[" + match.group(3) + " " + match.group(7)[1:]
             strand_2 = k[:match.start()] + strand_2 + k[match.end():]
+            print("A:", tidy(strand_1), "B:", tidy(strand_2))
             yield self.Transition([k], [tidy(strand_1), tidy(strand_2)], alpha)
 
 
 
 process = stocal.Process(
-    rules=[ReductionRule()]
+    rules=[BindingRule()]
 )
 
 if __name__ == '__main__':
-    # initial_state = {"{S' N^* L' R'}": 60, "<L N^ M N^>": 50}
-    # initial_state = {"{ N^* L' R'}": 60, "<L N^ M N^>": 50}
-    # initial_state = {"{N^* S' N^*}[C^]": 60, "<N^ M N^>": 50, "{L'}<L>[N^]<R>[M^]<S'>[A^]{B}" : 50}
     # initial_state = {"<A>{B}[D^]<C^ F>{C^* G}": 60}
     # initial_state = {"<Z Y C>[B]::<E F G>::[K]": 60}
     initial_state = {"{A}<B>[C^]<D>{E}::{F}<G>[H^]<I>{J}::{K}<L>[M^]<N>{O}": 500}  # THIS ONE
@@ -460,15 +458,8 @@ if __name__ == '__main__':
     initial_state = {"{L'}<L>[S]<L2>:<R S>[S1]<R2>{R'}" : 60}
     initial_state = {"{L'}<L>[S]{L2}::{R S}[S1]<R2>{R'}" : 60}
     #initial_state = {"{L'}<L>[S1]{S R}::{L2}[S]<R2>{R'}" : 60}
-
-    #initial_state = {'{K M^* O}': 500, '{F H^* J}': 500, '{A C^* E}': 500, '<B C^ D G H^ I L M^ N>': 500}
     #initial_state = {"{A}<B>[C^]<D>:{E F^* G}<H>[I]<J>{K}": 60, "<Z F^ X>": 60}
     # initial_state = {"{A}<B>[C^]{E}::{K}<D G H^ I L>[M^]<O>{Z N^* G}" :600, "<F N^ J>":600}
-    # initial_state = {"{F}<B C^ D G>[H^]{J}::{K}<I L>[M^]<N>{O}" : 60, "{A C^* E}" : 60}
-    #print("init 1", initial_state)
-    # initial_state = {"{F}<B C^ D G>[H^]<I>{J}::{K}<L>[M^]<N>{O}::{P}<Q>[R^]<S>{T}" : 60, "{A C^*}" : 60} #THIS ONE
-    # initial_state = {"{A C^*}" : 60, "{F}<B C^ G>[H^]<I>{J}" : 60}
-    # initial_state = {"{L' N^* R'}" : 10000, "<L N^ R>" : 10000}
     # initial_state = {"{L'}<L>[S1]<S R2 R3>:<L1>[S R2 S2]<R>{R'}" : 6000000}
     # initial_state = {"{L'}<L>[S1]<S R>:<L2>[S]<R2>{R'}" : 60}
     # initial_state = {"{L'}<L>[S]<N^ R>{N^* R'}" : 60}
@@ -481,7 +472,7 @@ if __name__ == '__main__':
     #print("X", x)
     #z = standardise(x)
     #print("STANDARDISE", z)
-    traj = process.sample(initial_state, tmax=100.)
+    traj = process.sample(initial_state, tmax=1000000000.)
     for _ in traj:
         print(traj.time, traj.state)
 
@@ -514,15 +505,10 @@ if __name__ == '__main__':
 # re_upper = re.compile('((?<=\<).+?(?=\>))')  # Pulls through characters between < and > chars, excluding the brackets themselves.
 # re_lower = re.compile('((?<=\{).+?(?=\}))')  # Pulls through characters between { and } chars, excluding the brackets themselves.
 
-# Original failed checking:
-# for key in initial_state:
-
 # if re.fullmatch(format_check, key) is None:
 #     format_correct = False
 #     print("Incorrect Input:", key) #Some of the brackets must not match up. Raise a proper error in time.
 
-# if format_correct:
-# format_correct = True
 
 # for upper_th in re.finditer(re_upper_lab_end, gate[:seq.start()]):
 #     print("upper_th", upper_th)
@@ -550,9 +536,6 @@ if __name__ == '__main__':
 #             draft_strand = part_a + "[" + match_2.group() + "^]" + part_b
 #             final_strand = format_sequence(draft_strand)
 #             print("final", final_strand)
-
-# format = re.compile('<[^\[\]{}]*?>|\[[^<>{}]*?]|{[^<>\[\]]*?}|\s*:*')  # TODO: Fix this - speak to Harold.
-# # Needs to check that each part of a strand meets one of these requirements. Fullmatch does not work.
 
 # def format_sequence(seq):
 #     #seq = re.sub(re_spaces_end, '', re.sub(re_spaces_start, '', seq))  # Remove unneccesary whitespaces
