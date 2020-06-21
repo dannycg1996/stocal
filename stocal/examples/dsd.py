@@ -95,13 +95,18 @@ re_format_4 = re.compile(
     f"({re_double.pattern}{re_upper.pattern}?{re_lower.pattern}:{re_upper.pattern}?{re_double.pattern})")
 
 
-def find_sub_seq(seq, trunc=True):
-    """Takes a sub sequence, and either returns the regex match (without the first and last chars) or a blank string '' """
+def check_in(seq):
+    """Takes a sequence, and if it isn't None it returns the sequence with the first and last character missing (this will be used to remove
+     brackets around a group and make code more readable). If seq == None, return a blank string '' """
     if seq is not None:
-        if trunc is True:
-            return seq[1:len(seq) - 1]
-        else:
-            return seq
+        return seq[1:len(seq) - 1]
+    return ""
+
+
+def check_out(seq):
+    """Takes a sub sequence, and either returns the regex match (if seq!=None) or a blank string '' """
+    if seq is not None:
+        return seq
     return ""
 
 
@@ -242,7 +247,7 @@ class BindingRule(stocal.TransitionRule):
                                 elif match.start() > gate.start(4) - i and match.end() < gate.end(4) - i:
                                     u_s_1 = "<" + k[gate.start(4) + 1:match.start() + i] + ">"
                                     u_s_2 = "<" + k[match.end() + i + 1:gate.end(4) - 1] + ">"
-                                    seq = k[:gate.end(3)] + find_sub_seq(gate.group(5),False) + "::" + seq_start + u_s_1 + d_s + u_s_2 + seq_end + k[gate.end():]
+                                    seq = k[:gate.end(3)] + check_out(gate.group(5)) + "::" + seq_start + u_s_1 + d_s + u_s_2 + seq_end + k[gate.end():]
                                     yield self.Transition([k, l], [standardise(seq)], alpha)
                             else:
                                 seq_start = "<" + l[1:match_2.start()] + ">"
@@ -293,10 +298,10 @@ class UnbindingRule(stocal.TransitionRule):
             d_s = re.search(re_short_double_th, gate.group())
             if d_s is not None:
                 label = re.search(re_double_lab, d_s.group()).group()
-                upper_1 = find_sub_seq(gate.group(2))
-                lower_1 = find_sub_seq(gate.group(1))
-                upper_2 = find_sub_seq(gate.group(4))
-                lower_2 = find_sub_seq(gate.group(5))
+                upper_1 = check_in(gate.group(2))
+                lower_1 = check_in(gate.group(1))
+                upper_2 = check_in(gate.group(4))
+                lower_2 = check_in(gate.group(5))
                 part_a = "<" + upper_1 + " " + label + "^ " + upper_2 + ">"
                 part_b = "{" + lower_1 + " " + label + "^* " + lower_2 + "}"
                 if gate.start() > 0:
@@ -362,11 +367,11 @@ class MigrationRule(stocal.TransitionRule):
             d_s_2 = "[" + match.group()[match.end(7)-i:match.end(6)-i]
             if regex_2 == re_lower:
                 strand_1 = "{" + match.group()[match.end(3)-i:match.end(2)-i]
-                strand_2 = "{" + find_sub_seq(match.group(5)) + " " + match.group(3) + "}"
+                strand_2 = "{" + check_in(match.group(5)) + " " + match.group(3) + "}"
                 bracket = "::"
             else:
                 strand_1 = "<" + match.group()[match.end(3)-i:match.end(2)-i]
-                strand_2 = "<" + find_sub_seq(match.group(5)) + " " + match.group(3) + ">"
+                strand_2 = "<" + check_in(match.group(5)) + " " + match.group(3) + ">"
                 bracket = ":"
             seq = tidy(k[:match.start()] + d_s_1 + strand_1 + bracket + strand_2 + d_s_2 + k[match.end():])
             print("seq", seq)
@@ -403,14 +408,14 @@ class ReductionRule(stocal.TransitionRule):
 
     def reduction_fwd(self, k, regex_1):
         for match in re.finditer(regex_1, k):
-            strand_1 = find_sub_seq(match.group(4)) + " " + match.group(2) + " "
+            strand_1 = check_in(match.group(4)) + " " + match.group(2) + " "
             start = k[:match.end(1)-1] + " " + match.group(2) + "]"
             if regex_1 == re_reduce_upper:
-                strand_1 = tidy("<" + strand_1 + find_sub_seq(match.group(6)) + ">")
-                strand_2 = tidy(start + "<" + find_sub_seq(match.group(3), False) + ">" + find_sub_seq(match.group(7), False) + k[match.end():])
+                strand_1 = tidy("<" + strand_1 + check_in(match.group(6)) + ">")
+                strand_2 = tidy(start + "<" + check_out(match.group(3)) + ">" + check_out(match.group(7)) + k[match.end():])
             else:
-                strand_1 = tidy("{" + strand_1 + find_sub_seq(match.group(7)) + "}")
-                strand_2 = tidy(start + " " + find_sub_seq(match.group(6), False) + "{" + find_sub_seq(match.group(3), False) + "}" + k[match.end():])
+                strand_1 = tidy("{" + strand_1 + check_in(match.group(7)) + "}")
+                strand_2 = tidy(start + " " + check_out(match.group(6)) + "{" + check_out(match.group(3)) + "}" + k[match.end():])
             print("strand_1", strand_1, "strand_2", strand_2)
 
             yield self.Transition([k], [strand_1 , strand_2], alpha)
@@ -418,11 +423,11 @@ class ReductionRule(stocal.TransitionRule):
     def reduction_rev(self, k, regex_1):
         for match in re.finditer(regex_1, k):
             if regex_1 == re_reduce_upper_r:
-                strand_1 = "<" + find_sub_seq(match.group(2)) + " " + match.group(3) + " " + find_sub_seq(match.group(4)) + ">"
-                strand_2 = find_sub_seq(match.group(1), False) + "<" + find_sub_seq(match.group(5), False) + ">[" + match.group(3) + " " + match.group(7)[1:]
+                strand_1 = "<" + check_in(match.group(2)) + " " + match.group(3) + " " + check_in(match.group(4)) + ">"
+                strand_2 = check_out(match.group(1)) + "<" + check_out(match.group(5)) + ">[" + match.group(3) + " " + match.group(7)[1:]
             else:
-                strand_1 = "{" + find_sub_seq(match.group(1))  + " " + match.group(3) + " " + find_sub_seq(match.group(4)) + "}"
-                strand_2 = "{" + find_sub_seq(match.group(5), False) + "}" + find_sub_seq(match.group(2), False) + "[" + match.group(3) + " " + match.group(7)[1:]
+                strand_1 = "{" + check_in(match.group(1)) + " " + match.group(3) + " " + check_in(match.group(4)) + "}"
+                strand_2 = "{" + check_out(match.group(5)) + "}" + check_out(match.group(2)) + "[" + match.group(3) + " " + match.group(7)[1:]
             strand_2 = k[:match.start()] + strand_2 + k[match.end():]
             print("A:", tidy(strand_1), "B:", tidy(strand_2))
             yield self.Transition([k], [tidy(strand_1), tidy(strand_2)], alpha)
