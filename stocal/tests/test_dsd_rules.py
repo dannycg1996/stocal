@@ -55,29 +55,28 @@ class TestUnbindingRule(TestTransitionRule):
     from stocal.examples.dsd import UnbindingRule
     Rule = UnbindingRule
 
+    # TODO: Can I unbind [A^ B^]?
     def test_strand_to_strand_binding_generates_a_b_c(self):
 
-        #Test the simplest unbinding cases, where the system consists of a single gate.
-        self.test_single_unbinding("{L'}<L>[N^]<R>{R'}", "{L' N^* R'}", "<L N^ R>")
-        self.test_single_unbinding("{B}<A>[D^]<C^ F>{C^* G}", "<A D^ C^ F>", "{B D^* C^* G}")
+        # Test the simplest unbinding cases, where the system consists of a single gate.
+        m_a_1 = set(list(set(self.Rule.novel_reactions(self.Rule(), "{L'}<L>[N^]<R>{R'}")))[0].products.keys())
+        exp_res_1 = {"{L' N^* R'}", "<L N^ R>"}
+        self.assertEqual(set(), set.difference(m_a_1,exp_res_1))
 
-    def test_single_unbinding(self, whole, part_1, part_2):
-        """This function takes a system (which should only contain one double toehold which can unbind) and two expected
-        results (from being unbound) and then checks that the rule works"""
-        result_1 = list(list(set(self.Rule.novel_reactions(self.Rule(), whole)))[0].products.keys())[0]
-        result_2 = list(list(set(self.Rule.novel_reactions(self.Rule(), whole)))[0].products.keys())[1]
-        if result_1 == part_1:
-            self.assertEqual(result_1, part_1)
-            self.assertEqual(result_2, part_2)
-        else:
-            self.assertEqual(result_1, part_2)
-            self.assertEqual(result_2, part_1)
+        m_a_2 = set(list(set(self.Rule.novel_reactions(self.Rule(), "{B}<A>[D^]<C^ F>{C^* G}")))[0].products.keys())
+        exp_res_2 = {"<A D^ C^ F>", "{B D^* C^* G}"}
+        self.assertEqual(set(), set.difference(m_a_2,exp_res_2))
 
+        # Test a system which consists of two gates, with one possible point of unbinding.
+        m_a_3 = set(list(set(self.Rule.novel_reactions(self.Rule(), "{L'}<L1>[N^]<S R1>:<L>[S R2]<R>{R'}")))[0].products.keys())
+        exp_res_3 = {"<L1 N^ S R1>", "{L' N^*}<L>[S R2]<R>{R'}"}
+        self.assertEqual(set(), set.difference(m_a_3,exp_res_3))
 
-        # TODO: Can I unbind [A^ B^]?
-
-
-
+        # Test a system which can unbind at 3 different points.
+        m_a_4 = set(list(set(self.Rule.novel_reactions(self.Rule(),"{A}<B>[C^]<D>{E}::{F}<G>[H^]<I>{J}::{K}<L>[M^]<N>{O}")))[0].products.keys())
+        exp_res_4 = {"{F}<B C^ D G>[H^]{J}::{K}<I L>[M^]<N>{O}", "{A C^* E}", "{A}<B>[C^]{E}::{K}<D G H^ I L>[M^]<N>{O}","{F H^* J}",
+                     "{A}<B>[C^]{E}::{F}<D G>[H^]<I L M^ N>{J}", "{K M^* O}"}
+        self.assertEqual(set(), set.difference(m_a_4,exp_res_4))
 
 
 if __name__ == '__main__':
