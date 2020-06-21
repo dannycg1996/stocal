@@ -60,12 +60,18 @@ re_pre_cover = re.compile(r'(\w+)(?=\^\*\s*\}\s*\<.*(\1)\^\s*\>)')  # Matches wh
 re_post_cover = re.compile(r'(?<=\<)\s*?(\w+)(?=\^.*>\s*\{\s*(\1)\^\*)')  # Matches where the Covering rule can be applied on a gate, after the d_s
 
 #    initial_state = {"{L'}<L>[S1]<S R2>:<L1>[S S2]<R>{R'}":60}
+#re_upper_migrate = re.compile(
+#     fr"{re_double.pattern}(<(\w+)\s(\w+)?[^<>:]*?>):{re_upper.pattern}?(\[(\3)\s[^\4]+?[^<>]*?\s*\])")   # Matches where upper strand migration can occur.
 re_upper_migrate = re.compile(
-     fr"{re_double.pattern}(<(\w+)\s(\w+)?[^<>:]*?>):{re_upper.pattern}?(\[(\3)\s[^\4]+?[^<>]*?\s*\])")   # Matches where upper strand migration can occur.
+    fr"{re_double.pattern}(<(\w+)\s?(\w+)?[^<>:]*?>):{re_upper.pattern}?(\[(\3)\s(?!\4\])[^<>]*?\])"
+)
+#(\[[^<{\[\]}>]*?\])(<(\w+)\s?(\w+)?[^<>:]*?>):(<[^<\[{]*?>)?(\[(\3)\s(?!\4\])[^<>]*?\])
 re_lower_migrate = re.compile(
     fr"{re_double.pattern}({{(\w+)\s(\w+)?[^<>:]*?\}})::{re_lower.pattern}?(\[(\3)\s[^\4]+?[^<>]*?\s*\])")  # Matches where lower strand migration can occur.
 re_upper_migrate_r = re.compile(
     fr"(\[\w[^<>]*?\s(\w+)\s*\]){re_upper.pattern}:(<[^<>:]*?(\2)\s*>){re_double.pattern}")  # Matches where upper strand rev migration can occur.
+
+
 re_lower_migrate_r = re.compile(
     fr"(\[\w[^<>]*?\s(\w+)\s*\]){re_lower.pattern}::({{[^<>:]*?(\2)\s*}}){re_double.pattern}") # Matches where lower strand rev migration can occur.
 
@@ -333,7 +339,6 @@ class CoveringRule(stocal.TransitionRule):
 
     def toehold_covering(self, k):
         k = tidy(k)
-        print("No")
         for gate in re.finditer(re_gate, k):
             pre_cover = re.search(re_pre_cover, gate.group())
             post_cover = re.search(re_post_cover, gate.group())
@@ -364,6 +369,7 @@ class MigrationRule(stocal.TransitionRule):
         yield from self.migrate_rev(k, re_upper_migrate_r, re_upper)
 
     def migrate(self, k, regex_1, regex_2):
+        print("Migrate")
         for match in re.finditer(regex_1, k):
             print("MATCH", match)
             i = match.start()
@@ -465,8 +471,8 @@ if __name__ == '__main__':
     initial_state = {"<t^ x y>" : 1, "{t^*}[x]:[y u^]" : 1}
     initial_state = {"[t^]<x y>:[x]:[y u^]": 1}
     initial_state = {"[t^ x]<y>:[y u^]": 1}
-    initial_state = {"{L'}<L>[S1]<S R2>:<L1>[S S2]<R>{R'}":1}
-    initial_state = {"{L'}<L>[S1]{S R2}::{L1}[S S2]<R>{R'}":1}
+    #initial_state = {"{L'}<L>[S1]<S R2>:<L1>[S S2]<R>{R'}":1}
+    #initial_state = {"{L'}<L>[S1]{S R2}::{L1}[S S2]<R>{R'}":1}
     initial_state = {standardise(key): value for key, value in initial_state.items()}
     #print("init 2", initial_state)
     # re_lone_upper_1 = re.compile(f"^({re_upper.pattern})::|(?<=::)({re_upper.pattern})::")
