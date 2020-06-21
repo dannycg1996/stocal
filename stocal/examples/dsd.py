@@ -95,14 +95,6 @@ re_format_4 = re.compile(
     f"({re_double.pattern}{re_upper.pattern}?{re_lower.pattern}:{re_upper.pattern}?{re_double.pattern})")
 
 
-def find_sub_sequence(regex, seq):
-    """Takes a regex and a sub sequence, and either returns the regex match (without the first and last chars) or a blank string '' """
-    seq = re.search(regex, seq)
-    if seq is not None:
-        return seq.group()[1:len(seq.group()) - 1]
-    return ""
-
-
 def find_sub_seq(seq, trunc=True):
     """Takes a sub sequence, and either returns the regex match (without the first and last chars) or a blank string '' """
     if seq is not None:
