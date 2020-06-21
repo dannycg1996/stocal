@@ -60,7 +60,7 @@ re_pre_cover = re.compile(r'(\w+)(?=\^\*\s*\}\s*\<.*(\1)\^\s*\>)')  # Matches wh
 re_post_cover = re.compile(r'(?<=\<)\s*?(\w+)(?=\^.*>\s*\{\s*(\1)\^\*)')  # Matches where the Covering rule can be applied on a gate, after the d_s
 
 #    initial_state = {"{L'}<L>[S1]<S R2>:<L1>[S S2]<R>{R'}":60}
-#re_upper_migrate = re.compile(
+# re_upper_migrate = re.compile(
 #     fr"{re_double.pattern}(<(\w+)\s(\w+)?[^<>:]*?>):{re_upper.pattern}?(\[(\3)\s[^\4]+?[^<>]*?\s*\])")   # Matches where upper strand migration can occur.
 re_upper_migrate = re.compile(
     fr"{re_double.pattern}(<(\w+)\s?(\w+)?[^<>:]*?>):{re_upper.pattern}?(\[(\3)\s(?!\4\])[^<>]*?\])"
@@ -70,8 +70,6 @@ re_lower_migrate = re.compile(
     fr"{re_double.pattern}({{(\w+)\s(\w+)?[^<>:]*?\}})::{re_lower.pattern}?(\[(\3)\s[^\4]+?[^<>]*?\s*\])")  # Matches where lower strand migration can occur.
 re_upper_migrate_r = re.compile(
     fr"(\[\w[^<>]*?\s(\w+)\s*\]){re_upper.pattern}:(<[^<>:]*?(\2)\s*>){re_double.pattern}")  # Matches where upper strand rev migration can occur.
-
-
 re_lower_migrate_r = re.compile(
     fr"(\[\w[^<>]*?\s(\w+)\s*\]){re_lower.pattern}::({{[^<>:]*?(\2)\s*}}){re_double.pattern}") # Matches where lower strand rev migration can occur.
 
@@ -86,7 +84,6 @@ re_reduce_lower_r = re.compile(
     fr"{re_lower.pattern}?{re_upper.pattern}?\[(\w)\]{re_lower.pattern}?::{{([^<>:]*?)(\3)}}{re_double.pattern}"
 )
 #"{L'}<L>[S]<R S>:<L2>[S1]<L>{L'}" : 60
-#TODO: Finish the reduce rule.
 
 re_format_1 = re.compile(
     f"({re_double.pattern}{re_upper.pattern}{re_lower.pattern}?::{re_lower.pattern}?{re_upper.pattern}{re_double.pattern})")
