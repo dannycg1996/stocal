@@ -61,9 +61,9 @@ re_post_cover = re.compile(r'(?<=\<)\s*?(\w+)(?=\^.*>\s*\{\s*(\1)\^\*)')  # Matc
 
 #    initial_state = {"{L'}<L>[S1]<S R2>:<L1>[S S2]<R>{R'}":60}
 re_upper_migrate = re.compile(
-     fr"{re_double.pattern}(<(\w+)\s*(\w+)?[^<>:]*?>):{re_upper.pattern}?(\[(\3)\s[^\4]+?[^<>]*?\s*\])")   # Matches where upper strand migration can occur.
+     fr"{re_double.pattern}(<(\w+)\s(\w+)?[^<>:]*?>):{re_upper.pattern}?(\[(\3)\s[^\4]+?[^<>]*?\s*\])")   # Matches where upper strand migration can occur.
 re_lower_migrate = re.compile(
-    fr"{re_double.pattern}({{(\w+)[^<>:]*?\}})::{re_lower.pattern}?(\[(\3)[^<>]*?\w\s*\])")  # Matches where lower strand migration can occur.
+    fr"{re_double.pattern}({{(\w+)\s(\w+)?[^<>:]*?\}})::{re_lower.pattern}?(\[(\3)\s[^\4]+?[^<>]*?\s*\])")  # Matches where lower strand migration can occur.
 re_upper_migrate_r = re.compile(
     fr"(\[\w[^<>]*?\s(\w+)\s*\]){re_upper.pattern}:(<[^<>:]*?(\2)\s*>){re_double.pattern}")  # Matches where upper strand rev migration can occur.
 re_lower_migrate_r = re.compile(
@@ -371,7 +371,7 @@ class MigrationRule(stocal.TransitionRule):
             d_s_2 = "[" + match.group()[match.end(7)-i:match.end(6)-i]
             if regex_2 == re_lower:
                 strand_1 = "{" + match.group()[match.end(3)-i:match.end(2)-i]
-                strand_2 = match.group(4)[:len(match.group(4))-1] + " " + match.group(3) + "}"
+                strand_2 = "{" + find_sub_seq(match.group(5)) + " " + match.group(3) + "}"
                 bracket = "::"
             else:
                 strand_1 = "<" + match.group()[match.end(3)-i:match.end(2)-i]
@@ -466,6 +466,7 @@ if __name__ == '__main__':
     initial_state = {"[t^]<x y>:[x]:[y u^]": 1}
     initial_state = {"[t^ x]<y>:[y u^]": 1}
     initial_state = {"{L'}<L>[S1]<S R2>:<L1>[S S2]<R>{R'}":1}
+    initial_state = {"{L'}<L>[S1]{S R2}::{L1}[S S2]<R>{R'}":1}
     initial_state = {standardise(key): value for key, value in initial_state.items()}
     #print("init 2", initial_state)
     # re_lone_upper_1 = re.compile(f"^({re_upper.pattern})::|(?<=::)({re_upper.pattern})::")
