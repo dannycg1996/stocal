@@ -128,17 +128,13 @@ def fix_upper_gate(sys, match_obj, i):
     """This function takes a system sys, a match object and a starting index. The match object identifies gates which consist solely of
      an upper strand, merges it with a gate to the right, and then returns the updated system"""
     if match_obj.group(3+i) is not None:  # Match object has 6 groups: (< >)::({ })(< >)([ ])(< >)({ })
-        print("A")
         strand = sys[:match_obj.start()] + sys[match_obj.end(1+i)+2:match_obj.start(3+i)+1] +\
             match_obj.group(1+i)[1:len(match_obj.group(1+i))-1] + " " + sys[match_obj.start(3+i)+1:]
-        print("Strand", strand)
     elif match_obj.group(2+i) is not None:
-        print("B")
         strand = sys[:match_obj.start()] + match_obj.group(2+i) + match_obj.group(1+i) + sys[match_obj.start(4+i):]
     else:
-        print("C")
         strand = sys[:match_obj.start()] + match_obj.group(1+i) + sys[match_obj.start(4+i):]
-    print(strand, "strand 2")
+    #print(strand, "strand 2")
     return strand
 
 
@@ -445,15 +441,12 @@ class ReductionRule(stocal.TransitionRule):
 
 
 process = stocal.Process(
-    rules=[ReductionRule(), MigrationRule()]
+    rules=[UnbindingRule()]
 )
 
 if __name__ == '__main__':
-    # initial_state = {"<A>{B}[D^]<C^ F>{C^* G}": 60}
     # initial_state = {"<Z Y C>[B]::<E F G>::[K]": 60}
-    initial_state = {"{A}<B>[C^]<D>{E}::{F}<G>[H^]<I>{J}::{K}<L>[M^]<N>{O}": 500}  # THIS ONE
     initial_state = {"<L1 N^ S R1>": 60, "{L' N^*}<L>[S R2]<R>{R'}": 60}
-    initial_state = {"{L'}<L1>[N^]<S R1>:<L>[S R2]<R>{R'}" : 60}
     initial_state = {"{N^*}<R N^>[S]<A B C>{D E}" : 60}
     #initial_state = {"{L'}<L>[S1]<S R2>:<L1>[S S2]<R>{R'}":60}
     #initial_state = {"{L'}<L>[S1]{S R2}::{L1}[S S2]<R>{R'}":60}
@@ -473,6 +466,7 @@ if __name__ == '__main__':
     initial_state = {"[t^ x]<y>:[y u^]": 1}
     #initial_state = {"{L'}<L>[S1]<S R2>:<L1>[S S2]<R>{R'}":1}
     #initial_state = {"{L'}<L>[S1]{S R2}::{L1}[S S2]<R>{R'}":1}
+
     initial_state = {standardise(key): value for key, value in initial_state.items()}
     #print("init 2", initial_state)
     # re_lone_upper_1 = re.compile(f"^({re_upper.pattern})::|(?<=::)({re_upper.pattern})::")
