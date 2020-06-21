@@ -3,6 +3,7 @@
 import unittest
 from stocal.tests.test_transitions import TestReactionRule as TestTransitionRule, TestMassAction
 
+
 class TestBindingRule(TestTransitionRule):
     from stocal.examples.dsd import BindingRule
     Rule = BindingRule
@@ -48,6 +49,29 @@ class TestBindingRule(TestTransitionRule):
         self.assertEqual(m_a_4, "{A}<B>[C^]{E}::{F}<D G>[H^]:{J K}<I L>[M^]<N>{O}")
         m_a_5 = list(list(set(self.Rule.novel_reactions(self.Rule(), "<L1 N^ S R1>", "{L' N^*}<L>[S R2]<R>{R'}")))[0].products.keys())[0]
         self.assertEqual(m_a_5, "{L'}<L1>[N^]<S R1>:<L>[S R2]<R>{R'}")
+
+
+class TestUnbindingRule(TestTransitionRule):
+    from stocal.examples.dsd import UnbindingRule
+    Rule = UnbindingRule
+
+    def test_strand_to_strand_binding_generates_a_b_c(self):
+        # m_a_1 and m_a_2 check that the basic RU example from the Lakin paper yields the correct result.
+        m_a_1 = list(list(set(self.Rule.novel_reactions(self.Rule(), "{L'}<L>[N^]<R>{R'}")))[0].products.keys())[0]
+        m_a_2 = list(list(set(self.Rule.novel_reactions(self.Rule(), "{L'}<L>[N^]<R>{R'}")))[0].products.keys())[1]
+
+        if m_a_1 == "{L' N^* R'}":
+            self.assertEqual(m_a_1, "{L' N^* R'}")
+            self.assertEqual(m_a_2, "<L N^ R>")
+        else:
+            self.assertEqual(m_a_1, "<L N^ R>")
+            self.assertEqual(m_a_2, "{L' N^* R'}")
+
+        # TODO: Can I unbind [A^ B^]?
+
+
+
+
 
 if __name__ == '__main__':
     unittest.main()

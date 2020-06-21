@@ -61,16 +61,16 @@ re_post_cover = re.compile(r'(?<=\<)\s*?(\w+)(?=\^.*>\s*\{\s*(\1)\^\*)')  # Matc
 
 #    initial_state = {"{L'}<L>[S1]<S R2>:<L1>[S S2]<R>{R'}":60}
 re_upper_migrate = re.compile(
-    fr"{re_double.pattern}(<(\w+)[^<>:]*?>):{re_upper.pattern}(\[(\3)[^<>]*?\w\s*\])")   # Matches where upper strand migration can occur.
+     fr"{re_double.pattern}(<(\w+)\s*(\w+)?[^<>:]*?>):{re_upper.pattern}?(\[(\3)\s[^\4]+?[^<>]*?\s*\])")   # Matches where upper strand migration can occur.
 re_lower_migrate = re.compile(
-    fr"{re_double.pattern}({{(\w+)[^<>:]*?\}})::{re_lower.pattern}(\[(\3)[^<>]*?\w\s*\])")  # Matches where lower strand migration can occur.
+    fr"{re_double.pattern}({{(\w+)[^<>:]*?\}})::{re_lower.pattern}?(\[(\3)[^<>]*?\w\s*\])")  # Matches where lower strand migration can occur.
 re_upper_migrate_r = re.compile(
     fr"(\[\w[^<>]*?\s(\w+)\s*\]){re_upper.pattern}:(<[^<>:]*?(\2)\s*>){re_double.pattern}")  # Matches where upper strand rev migration can occur.
 re_lower_migrate_r = re.compile(
     fr"(\[\w[^<>]*?\s(\w+)\s*\]){re_lower.pattern}::({{[^<>:]*?(\2)\s*}}){re_double.pattern}") # Matches where lower strand rev migration can occur.
 
 re_reduce_upper = re.compile(
-    fr"{re_double.pattern}<(\w+)([^<>:]*?)>:{re_upper.pattern}\[(\2)\]{re_upper.pattern}?{re_lower.pattern}?")
+    fr"{re_double.pattern}<(\w+)([^<>:]*?)>:{re_upper.pattern}?\[(\2)\]{re_upper.pattern}?{re_lower.pattern}?")
 re_reduce_lower = re.compile(
     fr"{re_double.pattern}{{(\w+)([^{{}}:]*?)}}::{re_lower.pattern}\[(\2)\]{re_upper.pattern}?{re_lower.pattern}?")
 re_reduce_upper_r = re.compile(
@@ -251,7 +251,7 @@ class BindingRule(stocal.TransitionRule):
                                 elif match.start() > gate.start(4) - i and match.end() < gate.end(4) - i:
                                     u_s_1 = "<" + k[gate.start(4) + 1:match.start() + i] + ">"
                                     u_s_2 = "<" + k[match.end() + i + 1:gate.end(4) - 1] + ">"
-                                    seq = k[:gate.end(3)] + gate.group(5) + "::" + seq_start + u_s_1 + d_s + u_s_2 + seq_end + k[gate.end():]
+                                    seq = k[:gate.end(3)] + find_sub_seq(gate.group(5),False) + "::" + seq_start + u_s_1 + d_s + u_s_2 + seq_end + k[gate.end():]
                                     yield self.Transition([k, l], [standardise(seq)], alpha)
                             else:
                                 seq_start = "<" + l[1:match_2.start()] + ">"
@@ -259,12 +259,14 @@ class BindingRule(stocal.TransitionRule):
                                 if match.start() > gate.start(1) - i and match.end() < gate.end(1) - i:
                                     l_s_1 = "{" + k[gate.start(1) + 1:match.start() + i] + "}"
                                     l_s_2 = "{" + k[match.end() + i + 2:gate.end(1) - 1] + "}"
-                                    seq = k[:gate.start(1)] + l_s_1 + seq_start + d_s + seq_end + l_s_2 + ":" + k[gate.start(2):]
+                                    seq = k[:gate.start()] + l_s_1 + seq_start + d_s + seq_end + l_s_2 + ":" + k[gate.end(1):]
+                                    print("seq", standardise(seq))
                                     yield self.Transition([k, l], [standardise(seq)], alpha)
                                 elif match.start() > gate.start(5) - i and match.end() < gate.end(5) - i:
                                     l_s_1 = "{" + k[gate.start(5) + 1:match.start() + i] + "}"
                                     l_s_2 = "{" + k[match.end() + i + 2:gate.end(5) - 1] + "}"
                                     seq = k[:gate.end(4)] + ":" + l_s_1 + seq_start + d_s + seq_end + l_s_2 + k[gate.end():] #("SEQ SECOND LOWER", seq)
+                                    print(seq, "seq")
                                     yield self.Transition([k, l], [standardise(seq)], alpha)
 
     def strand_to_strand_binding(self, k, l, regex_1, regex_2):
@@ -283,7 +285,7 @@ class BindingRule(stocal.TransitionRule):
                                  l[:match_2.start()] + re.search(re_close, l[match_2.start():]).group()
                         part_b = re.search(re_open, l[:match_2.end()]).group() + l[match_2.end() + 1:] + \
                                  re.search(re_open, k[:match_1.end() + 1]).group() + k[match_1.end() + 2:]
-                    # print("final", format_seq(part_a + d_s + part_b))
+                    print("final", tidy(part_a + d_s + part_b))
                     yield self.Transition([k, l], [tidy(part_a + d_s + part_b)], alpha)
 
 
@@ -304,10 +306,6 @@ class UnbindingRule(stocal.TransitionRule):
                 lower_1 = find_sub_seq(gate.group(1))
                 upper_2 = find_sub_seq(gate.group(4))
                 lower_2 = find_sub_seq(gate.group(5))
-                #upper_1 = find_sub_sequence(re_upper, gate.group()[:d_s.start()])
-                #lower_1 = find_sub_sequence(re_lower, gate.group()[:d_s.start()])
-                # upper_2 = find_sub_sequence(re_upper, gate.group()[d_s.end():])
-                # lower_2 = find_sub_sequence(re_lower, gate.group()[d_s.end():])
                 part_a = "<" + upper_1 + " " + label + "^ " + upper_2 + ">"
                 part_b = "{" + lower_1 + " " + label + "^* " + lower_2 + "}"
                 if gate.start() > 0:
@@ -367,16 +365,17 @@ class MigrationRule(stocal.TransitionRule):
 
     def migrate(self, k, regex_1, regex_2):
         for match in re.finditer(regex_1, k):
+            print("MATCH", match)
             i = match.start()
             d_s_1 = match.group(1)[:len(match.group(1))-1] + " " + match.group(3) + "]"
-            d_s_2 = "[" + match.group()[match.end(6)-i:match.end(5)-i]
+            d_s_2 = "[" + match.group()[match.end(7)-i:match.end(6)-i]
             if regex_2 == re_lower:
                 strand_1 = "{" + match.group()[match.end(3)-i:match.end(2)-i]
                 strand_2 = match.group(4)[:len(match.group(4))-1] + " " + match.group(3) + "}"
                 bracket = "::"
             else:
                 strand_1 = "<" + match.group()[match.end(3)-i:match.end(2)-i]
-                strand_2 = match.group(4)[:len(match.group(4))-1] + " " + match.group(3) + ">"
+                strand_2 = "<" + find_sub_seq(match.group(5)) + " " + match.group(3) + ">"
                 bracket = ":"
             seq = tidy(k[:match.start()] + d_s_1 + strand_1 + bracket + strand_2 + d_s_2 + k[match.end():])
             print("seq", seq)
@@ -396,7 +395,7 @@ class MigrationRule(stocal.TransitionRule):
                 strand_2 = match.group()[match.start(4)-i: match.start(5)-i] + ">"
                 bracket = ":"
             seq = tidy(k[:match.start()] + d_s_1 + strand_1 + bracket + strand_2 + d_s_2 + k[match.end():])
-            print("seq", seq)
+            print("seqR", seq)
             yield self.Transition([k], [seq], alpha)
 
 
@@ -412,7 +411,6 @@ class ReductionRule(stocal.TransitionRule):
         yield from self.reduction_rev(k, re_reduce_lower_r)
 
     def reduction_fwd(self, k, regex_1):
-        print("K reduce:", k)
         for match in re.finditer(regex_1, k):
             strand_1 = find_sub_seq(match.group(4)) + " " + match.group(2) + " "
             start = k[:match.end(1)-1] + " " + match.group(2) + "]"
@@ -441,7 +439,7 @@ class ReductionRule(stocal.TransitionRule):
 
 
 process = stocal.Process(
-    rules=[BindingRule()]
+    rules=[ReductionRule(), MigrationRule()]
 )
 
 if __name__ == '__main__':
@@ -457,13 +455,17 @@ if __name__ == '__main__':
     initial_state = {"{L'}<L>[S1]<S R>:<L2>[S]<R2>{R'}" : 60}
     initial_state = {"{L'}<L>[S]<L2>:<R S>[S1]<R2>{R'}" : 60}
     initial_state = {"{L'}<L>[S]{L2}::{R S}[S1]<R2>{R'}" : 60}
+
     #initial_state = {"{L'}<L>[S1]{S R}::{L2}[S]<R2>{R'}" : 60}
     #initial_state = {"{A}<B>[C^]<D>:{E F^* G}<H>[I]<J>{K}": 60, "<Z F^ X>": 60}
     # initial_state = {"{A}<B>[C^]{E}::{K}<D G H^ I L>[M^]<O>{Z N^* G}" :600, "<F N^ J>":600}
     # initial_state = {"{L'}<L>[S1]<S R2 R3>:<L1>[S R2 S2]<R>{R'}" : 6000000}
     # initial_state = {"{L'}<L>[S1]<S R>:<L2>[S]<R2>{R'}" : 60}
     # initial_state = {"{L'}<L>[S]<N^ R>{N^* R'}" : 60}
-
+    initial_state = {"<t^ x y>" : 1, "{t^*}[x]:[y u^]" : 1}
+    initial_state = {"[t^]<x y>:[x]:[y u^]": 1}
+    initial_state = {"[t^ x]<y>:[y u^]": 1}
+    initial_state = {"{L'}<L>[S1]<S R2>:<L1>[S S2]<R>{R'}":1}
     initial_state = {standardise(key): value for key, value in initial_state.items()}
     #print("init 2", initial_state)
     # re_lone_upper_1 = re.compile(f"^({re_upper.pattern})::|(?<=::)({re_upper.pattern})::")
