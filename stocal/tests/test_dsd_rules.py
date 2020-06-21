@@ -56,16 +56,23 @@ class TestUnbindingRule(TestTransitionRule):
     Rule = UnbindingRule
 
     def test_strand_to_strand_binding_generates_a_b_c(self):
-        # m_a_1 and m_a_2 check that the basic RU example from the Lakin paper yields the correct result.
-        m_a_1 = list(list(set(self.Rule.novel_reactions(self.Rule(), "{L'}<L>[N^]<R>{R'}")))[0].products.keys())[0]
-        m_a_2 = list(list(set(self.Rule.novel_reactions(self.Rule(), "{L'}<L>[N^]<R>{R'}")))[0].products.keys())[1]
 
-        if m_a_1 == "{L' N^* R'}":
-            self.assertEqual(m_a_1, "{L' N^* R'}")
-            self.assertEqual(m_a_2, "<L N^ R>")
+        #Test the simplest unbinding cases, where the system consists of a single gate.
+        self.test_single_unbinding("{L'}<L>[N^]<R>{R'}", "{L' N^* R'}", "<L N^ R>")
+        self.test_single_unbinding("{B}<A>[D^]<C^ F>{C^* G}", "<A D^ C^ F>", "{B D^* C^* G}")
+
+    def test_single_unbinding(self, whole, part_1, part_2):
+        """This function takes a system (which should only contain one double toehold which can unbind) and two expected
+        results (from being unbound) and then checks that the rule works"""
+        result_1 = list(list(set(self.Rule.novel_reactions(self.Rule(), whole)))[0].products.keys())[0]
+        result_2 = list(list(set(self.Rule.novel_reactions(self.Rule(), whole)))[0].products.keys())[1]
+        if result_1 == part_1:
+            self.assertEqual(result_1, part_1)
+            self.assertEqual(result_2, part_2)
         else:
-            self.assertEqual(m_a_1, "<L N^ R>")
-            self.assertEqual(m_a_2, "{L' N^* R'}")
+            self.assertEqual(result_1, part_2)
+            self.assertEqual(result_2, part_1)
+
 
         # TODO: Can I unbind [A^ B^]?
 
