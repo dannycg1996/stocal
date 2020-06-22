@@ -55,9 +55,7 @@ class TestUnbindingRule(TestTransitionRule):
     from stocal.examples.dsd import UnbindingRule
     Rule = UnbindingRule
 
-    # TODO: Can I unbind [A^ B^]?
     def test_strand_to_strand_binding_generates_a_b_c(self):
-
         # Test the simplest unbinding cases, where the system consists of a single gate.
         m_a_1 = set(list(set(self.Rule.novel_reactions(self.Rule(), "{L'}<L>[N^]<R>{R'}")))[0].products.keys())
         exp_res_1 = {"{L' N^* R'}", "<L N^ R>"}
@@ -77,6 +75,29 @@ class TestUnbindingRule(TestTransitionRule):
         exp_res_4 = {"{F}<B C^ D G>[H^]{J}::{K}<I L>[M^]<N>{O}", "{A C^* E}", "{A}<B>[C^]{E}::{K}<D G H^ I L>[M^]<N>{O}","{F H^* J}",
                      "{A}<B>[C^]{E}::{F}<D G>[H^]<I L M^ N>{J}", "{K M^* O}"}
         self.assertEqual(set(), set.difference(m_a_4,exp_res_4))
+
+
+class TestCoveringRule(TestTransitionRule):
+    from stocal.examples.dsd import CoveringRule
+    Rule = CoveringRule
+
+    def test_covering_rule_generates_a_b_c(self):
+        # m_a_1 checks that the basic RC  example from the Lakin paper yields the correct result.
+        m_a_1 = list(list(set(self.Rule.novel_reactions(self.Rule(), "{L'}<L>[S]<N^ R>{N^* R'}")))[0].products.keys())[0]
+        self.assertEqual(m_a_1, "{L'}<L>[S N^]<R>{R'}")
+        # m_a_2 checks that the RC example works right to left, as well as left to right.
+        m_a_2 = list(list(set(self.Rule.novel_reactions(self.Rule(), "{L' N^*}<L N^>[S]<R>{R'}")))[0].products.keys())[0]
+        self.assertEqual(m_a_2, "{L'}<L>[N^ S]<R>{R'}")
+
+        # Check variants:
+        m_a_3 = list(list(set(self.Rule.novel_reactions(self.Rule(), "[S]<N^ R>{N^* R'}")))[0].products.keys())[0]
+        self.assertEqual(m_a_3, "[S N^]<R>{R'}")
+        m_a_4 = list(list(set(self.Rule.novel_reactions(self.Rule(), "{L'}<L>[S]<N^ R>{N^* R'}::[A B]")))[0].products.keys())[0]
+        self.assertEqual(m_a_4, "{L'}<L>[S N^]<R>{R'}::[A B]")
+        m_a_5 = list(list(set(self.Rule.novel_reactions(self.Rule(), "[C D]<A>:{L'}<L>[S]<N^ R>{N^* R'}::[A B]")))[0].products.keys())[0]
+        self.assertEqual(m_a_4, "[C D]<A>:{L'}<L>[S N^]<R>{R'}::[A B]")
+
+
 
 
 if __name__ == '__main__':
