@@ -86,16 +86,23 @@ class TestCoveringRule(TestTransitionRule):
         m_a_1 = list(list(set(self.Rule.novel_reactions(self.Rule(), "{L'}<L>[S]<N^ R>{N^* R'}")))[0].products.keys())[0]
         self.assertEqual(m_a_1, "{L'}<L>[S N^]<R>{R'}")
         # m_a_2 checks that the RC example works right to left, as well as left to right.
-        m_a_2 = list(list(set(self.Rule.novel_reactions(self.Rule(), "{L' N^*}<L N^>[S]<R>{R'}")))[0].products.keys())[0]
-        self.assertEqual(m_a_2, "{L'}<L>[N^ S]<R>{R'}")
+        # m_a_2 = list(list(set(self.Rule.novel_reactions(self.Rule(), "{L' N^*}<L N^>[S]<R>{R'}")))[0].products.keys())[0]
+        # self.assertEqual(m_a_2, "{L'}<L>[N^ S]<R>{R'}")
 
         # Check variants:
         m_a_3 = list(list(set(self.Rule.novel_reactions(self.Rule(), "[S]<N^ R>{N^* R'}")))[0].products.keys())[0]
         self.assertEqual(m_a_3, "[S N^]<R>{R'}")
-        m_a_4 = list(list(set(self.Rule.novel_reactions(self.Rule(), "{L'}<L>[S]<N^ R>{N^* R'}::[A B]")))[0].products.keys())[0]
-        self.assertEqual(m_a_4, "{L'}<L>[S N^]<R>{R'}::[A B]")
-        m_a_5 = list(list(set(self.Rule.novel_reactions(self.Rule(), "[C D]<A>:{L'}<L>[S]<N^ R>{N^* R'}::[A B]")))[0].products.keys())[0]
-        self.assertEqual(m_a_4, "[C D]<A>:{L'}<L>[S N^]<R>{R'}::[A B]")
+        m_a_4 = list(list(set(self.Rule.novel_reactions(self.Rule(), "{A}<B>[C]{E^*}::{F}<E^ D>[G]")))[0].products.keys())[0]
+        self.assertEqual(m_a_4, "{A}<B>[C E^]::{F}<D>[G]")
+        m_a_5 = list(list(set(self.Rule.novel_reactions(self.Rule(), "{A}<B>[C]{E^* Z}::{F}<E^ D>[G]")))[0].products.keys())[0]
+        self.assertEqual(m_a_5, "{A}<B>[C E^]{Z}::{F}<D>[G]")
+        m_a_6 = list(list(set(self.Rule.novel_reactions(self.Rule(), "{A}<B>[C D]<E^ F>:{E^* G}[H]")))[0].products.keys())[0]
+        self.assertEqual(m_a_6, "{A}<B>[C D E^]<F>:{G}[H]")
+
+        # m_a_4 = list(list(set(self.Rule.novel_reactions(self.Rule(), "{L'}<L>[S]<N^ R>{N^* R'}::[A B]")))[0].products.keys())[0]
+        # self.assertEqual(m_a_4, "{L'}<L>[S N^]<R>{R'}::[A B]")
+        # m_a_5 = list(list(set(self.Rule.novel_reactions(self.Rule(), "[C D]<A>:{L'}<L>[S]<N^ R>{N^* R'}::[A B]")))[0].products.keys())[0]
+        # self.assertEqual(m_a_5, "[C D]<A>:{L'}<L>[S N^]<R>{R'}::[A B]")
 
 
 

@@ -57,8 +57,10 @@ re_lone_lower_1 = re.compile(f"^{re_lower.pattern}:{re_gate.pattern}|(?<=[^:]:){
 re_lone_lower_2 = re.compile(f"{re_gate.pattern}:{re_lower.pattern}$")
 
 re_pre_cover = re.compile(r'(\w+)(?=\^\*\s*\}\s*\<.*(\1)\^\s*\>)')  # Matches where the Covering rule can be applied on a gate, before the d_s
+re_pre_cover = re.compile(fr"{{([^}}]*?)(\w)\^\*\s*}}<[^>]*(\1)\^\s*>")
 re_post_cover = re.compile(r'(?<=<)\s*?(\w+)(?=\^.*>:*{\s*(\1)\^\*)')  # Matches where the Covering rule can be applied on a gate, after the d_s
-re_post_cover = re.compile(fr"<(\w+)\^\s([^>]*)>(:)*{{(\1)\^\*|(?<={{)(\w+)\^\*([^}}]*)}}::{re_lower.pattern}?<(\4)\^")
+re_post_cover = re.compile(fr"<(\w+)\^\s([^>]*)>(:)*{{(\1)\^\*\s([^}}]*)}}|(\w+)\^\*([^}}]*)}}::{re_lower.pattern}?<(\6)\^")
+
 #    initial_state = {"{L'}<L>[S1]<S R2>:<L1>[S S2]<R>{R'}":60}
 # re_upper_migrate = re.compile(
 #     fr"{re_double.pattern}(<(\w+)\s(\w+)?[^<>:]*?>):{re_upper.pattern}?(\[(\3)\s[^\4]+?[^<>]*?\s*\])")   # Matches where upper strand migration can occur.
@@ -128,7 +130,6 @@ def fix_upper_gate(sys, match_obj, i):
         strand = sys[:match_obj.start()] + match_obj.group(2+i) + match_obj.group(1+i) + sys[match_obj.start(4+i):]
     else:
         strand = sys[:match_obj.start()] + match_obj.group(1+i) + sys[match_obj.start(4+i):]
-    #print(strand, "strand 2")
     return strand
 
 
@@ -325,28 +326,30 @@ class CoveringRule(stocal.TransitionRule):
     Transition = stocal.MassAction
 
     def novel_reactions(self, k):
-        yield from self.toehold_covering(k)
+        yield from self.toehold_covering_fwd(k)
+        yield from self.toehold_covering_rev(k)
 
-    def toehold_covering(self, k):
-        k = tidy(k)
-        print("k", k)
+    def toehold_covering_fwd(self, k):
         for match in re.finditer(re_post_cover, k):
             print("Match", match)
             if match.group(1) is not None:
-                print("1", match.group(1))
-                print("2", match.group(2))
-                print("3", match.group(3))
-                updated_gate = k[:match.start()-1] + " " + match.group(1) + "^]"
-                                #updated_gate = match.group()[:match.end(3) - 1] + " " + post_cover.group() + "^]<" + \
-    #                            gate.group()[post_cover.end()+1:gate.end(4)] + "{" + gate.group()[post_cover.end(2)+2:]
-    #             updated_sys = k[:gate.start()] + tidy(updated_gate) + k[gate.end():]
+                print("match 1")
+                updated_gate = k[:match.start()-1] + " " + match.group(1) + "^]<" + check_out(match.group(2)) + ">" + \
+                               check_out(match.group(3)) + "{" + check_out(match.group(5)) + "}" + k[match.end():]
                 print("updated gate", updated_gate)
-                yield self.Transition([k], [updated_gate], alpha)
+                yield self.Transition([k], [tidy(updated_gate)], alpha)
             else:
-                updated_sys = k[:match.start()-2] + " " + match.group(5) + "]{" + check_out(match.group(6)) + "}::" + \
-                    check_out(match.group(7)) + "<" + k[match.end()+1:]
-                print("OOPS", tidy(updated_sys))
+                print("match 2", match)
+                print("6", match.group(6))
+                updated_sys = k[:match.start()-2] + " " + match.group(6) + "^]{" + check_out(match.group(7)) + "}::" + \
+                    check_out(match.group(8)) + "<" + k[match.end()+1:]
+                print("updated gate", tidy(updated_sys))
                 yield self.Transition([k], [tidy(updated_sys)], alpha)
+
+    def toehold_covering_rev(self, k):
+        for match in re.finditer(re_pre_cover, k):
+            yield self.Transition([k], [tidy(k)], alpha)
+            print("match rev", match.group())
 
                 #updated_gate = match.group()[:match.end(3) - 1] + " " + post_cover.group() + "^]<" + \
     #                            gate.group()[post_cover.end()+1:gate.end(4)] + "{" + gate.group()[post_cover.end(2)+2:]
@@ -492,6 +495,7 @@ if __name__ == '__main__':
     #{L'}<L>[S]<N^ R>:{N^* R'}[A B]
     #{L'}<L>[S]<N^ R>{N^* R'}
     initial_state ={"{L'}<L>[S]<N^ R>:{N^* R'}[A B]":1}
+    initial_state ={"{A}<B>[C]{E^*}::{F}<E^ D>[G]":1}
 
     initial_state = {standardise(key): value for key, value in initial_state.items()}
     #print("init 2", initial_state)
