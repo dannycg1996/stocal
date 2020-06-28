@@ -228,7 +228,6 @@ class BindingRule(stocal.TransitionRule):
             else:
                 yield from self.strand_to_strand_binding(k, l, re_upper_lab, re_lower_lab)
                 yield from self.strand_to_strand_binding(k, l, re_lower_lab, re_upper_lab)
-
     def strand_to_gate_binding(self, k, l, regex_1, regex_2):
         if re.search(regex_1, l) is not None:
             for gate in re.finditer(re_gate, k):
@@ -294,7 +293,6 @@ class UnbindingRule(stocal.TransitionRule):
         yield from self.toehold_unbinding(kl)
 
     def toehold_unbinding(self, kl):
-        kl = tidy(kl)
         for gate in re.finditer(re_gate, kl):
             d_s = re.search(re_short_double_th, gate.group())
             if d_s is not None:
@@ -326,27 +324,20 @@ class CoveringRule(stocal.TransitionRule):
     Transition = stocal.MassAction
 
     def novel_reactions(self, k):
-        yield from self.toehold_covering_fwd(k)
-        yield from self.toehold_covering_rev(k)
+        yield from self.toehold_covering(k)
 
-    def toehold_covering_fwd(self, k):
+    def toehold_covering(self, k):
         for match in re.finditer(re_post_cover, k):
             print("Match", match)
             if match.group(1) is not None:
-                print("1")
                 updated_sys = k[:match.start()-1] + " " + match.group(1) + "^]<" + check_out(match.group(2)) + ">" + \
-                               check_out(match.group(3)) + "{" + check_out(match.group(5)) + "}" + k[match.end():]
-                print("updated gate", updated_sys)
-                yield self.Transition([k], [tidy(updated_sys)], alpha)
+                    check_out(match.group(3)) + "{" + check_out(match.group(5)) + "}" + k[match.end():]
             else:
                 updated_sys = k[:match.start()-2] + " " + match.group(6) + "^]{" + check_out(match.group(7)) + "}::" + \
                     check_out(match.group(8)) + "<" + check_out(match.group(10)) + ">" + k[match.end():]
-                print("updated gate", tidy(updated_sys))
-                yield self.Transition([k], [tidy(updated_sys)], alpha)
-
-    def toehold_covering_rev(self, k):
+            print("updated gate", tidy(updated_sys))
+            yield self.Transition([k], [tidy(updated_sys)], alpha)
         for match in re.finditer(re_pre_cover, k):
-            print("match rev", match.group())
             updated_sys = k[:match.start()] + "{" + check_out(match.group(1)) + "}<" + check_out(match.group(3)) + ">[" + \
                 match.group(2) + "^ " + k[match.end()+1:]
             print("updated", tidy(updated_sys))
