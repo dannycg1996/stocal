@@ -297,12 +297,8 @@ class UnbindingRule(stocal.TransitionRule):
             d_s = re.search(re_short_double_th, gate.group())
             if d_s is not None:
                 label = re.search(re_double_lab, d_s.group()).group()
-                upper_1 = check_in(gate.group(2))
-                lower_1 = check_in(gate.group(1))
-                upper_2 = check_in(gate.group(4))
-                lower_2 = check_in(gate.group(5))
-                part_a = "<" + upper_1 + " " + label + "^ " + upper_2 + ">"
-                part_b = "{" + lower_1 + " " + label + "^* " + lower_2 + "}"
+                part_a = "<" + check_in(gate.group(2)) + " " + label + "^ " + check_in(gate.group(4)) + ">"
+                part_b = "{" + check_in(gate.group(1)) + " " + label + "^* " + check_in(gate.group(5)) + "}"
                 if gate.start() > 0:
                     if kl[gate.start() - 2:gate.start()] == "::":
                         part_a = kl[:gate.start()] + part_a
