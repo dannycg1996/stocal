@@ -56,12 +56,12 @@ re_lone_upper_2 = re.compile(f"{re_gate.pattern}::({re_upper.pattern})$")
 re_lone_lower_1 = re.compile(f"^{re_lower.pattern}:{re_gate.pattern}|(?<=[^:]:){re_lower.pattern}:{re_gate.pattern}")
 re_lone_lower_2 = re.compile(f"{re_gate.pattern}:{re_lower.pattern}$")
 
-re_pre_cover = re.compile(r'(\w+)(?=\^\*\s*\}\s*\<.*(\1)\^\s*\>)')  # Matches where the Covering rule can be applied on a gate, before the d_s
-re_pre_cover = re.compile(fr"{{([^}}]*?)(\w+)\^\*\s*}}<([^>]*)(\2)\^\s*>")#(\1)")#\^\s*>
-re_post_cover = re.compile(r'(?<=<)\s*?(\w+)(?=\^.*>:*{\s*(\1)\^\*)')  # Matches where the Covering rule can be applied on a gate, after the d_s
-re_post_cover = re.compile(fr"<(\w+)\^\s*([^>]*)>(:?){{(\1)\^\*\s*([^}}]*)}}|(\w+)\^\*([^}}]*)}}::{re_lower.pattern}?<(\6)\^\s*([^>]*)>")
+re_pre_cover = re.compile(
+    fr"{{([^}}]*?)(\w+)\^\*\s*}}<([^>]*)(\2)\^\s*>")  # Matches where the Covering rule can be applied on a gate, before the d_s
+re_post_cover = re.compile(
+    fr"<(\w+)\^\s*([^>]*)>(:?){{(\1)\^\*\s*([^}}]*)}}|(\w+)\^\*([^}}]*)}}::{re_lower.pattern}?<(\6)\^\s*([^>]*)>")
+# Matches where the Covering rule can be applied on a gate, after the d_s (or across two gates)
 
-#    initial_state = {"{L'}<L>[S1]<S R2>:<L1>[S S2]<R>{R'}":60}
 # re_upper_migrate = re.compile(
 #     fr"{re_double.pattern}(<(\w+)\s(\w+)?[^<>:]*?>):{re_upper.pattern}?(\[(\3)\s[^\4]+?[^<>]*?\s*\])")   # Matches where upper strand migration can occur.
 re_upper_migrate = re.compile(
@@ -293,12 +293,16 @@ class UnbindingRule(stocal.TransitionRule):
         yield from self.toehold_unbinding(kl)
 
     def toehold_unbinding(self, kl):
-        for gate in re.finditer(re_gate, kl):
-            d_s = re.search(re_short_double_th, gate.group())
+        """This function loops through a system gate by gate, and identifies double strands which can be unbound i.e.
+        double strands of the form [A^]. It then yields the two separate parts, which would be produced when that double strand
+        (toehold) unbinded."""
+        for gate in re.finditer(re_gate, kl):  # Loop through the system gate by gate.
+            d_s = re.search(re_short_double_th, gate.group())  # If one exists, retrieve the unbindable double strand in the gate.
             if d_s is not None:
-                label = re.search(re_double_lab, d_s.group()).group()
-                part_a = "<" + check_in(gate.group(2)) + " " + label + "^ " + check_in(gate.group(4)) + ">"
-                part_b = "{" + check_in(gate.group(1)) + " " + label + "^* " + check_in(gate.group(5)) + "}"
+                label = re.search(re_double_lab, d_s.group()).group()  # Retrieve label of unbindable toehold.
+                part_a = "<" + check_in(gate.group(2)) + " " + label + "^ " + check_in(gate.group(4)) + ">"  # Build upper part of gate.
+                part_b = "{" + check_in(gate.group(1)) + " " + label + "^* " + check_in(gate.group(5)) + "}"  # Build lower part pf hate
+                # Assemble the gates with the rest of the system, depending on how the gates were connected.
                 if gate.start() > 0:
                     if kl[gate.start() - 2:gate.start()] == "::":
                         part_a = kl[:gate.start()] + part_a
@@ -309,7 +313,6 @@ class UnbindingRule(stocal.TransitionRule):
                         part_a = part_a + kl[gate.end():]
                     else:
                         part_b = part_b + kl[gate.end():]
-
                 print("FINAL A:", standardise(part_a), "FINAL B:", standardise(part_b))
                 yield self.Transition([kl], [standardise(part_a), standardise(part_b)], alpha)
 
@@ -323,17 +326,17 @@ class CoveringRule(stocal.TransitionRule):
         yield from self.toehold_covering(k)
 
     def toehold_covering(self, k):
-        for match in re.finditer(re_post_cover, k):
+        for match in re.finditer(re_post_cover, k):  # Match on <>{} or <>:{} or {}::{}?<> sequences where Covering can be applied.
             print("Match", match)
-            if match.group(1) is not None:
+            if match.group(1) is not None:  # If matching on <>{} or <>:{} then apply covering to system.
                 updated_sys = k[:match.start()-1] + " " + match.group(1) + "^]<" + check_out(match.group(2)) + ">" + \
                     check_out(match.group(3)) + "{" + check_out(match.group(5)) + "}" + k[match.end():]
-            else:
+            else:  # If matching on {}::{}?<> then update system.
                 updated_sys = k[:match.start()-2] + " " + match.group(6) + "^]{" + check_out(match.group(7)) + "}::" + \
                     check_out(match.group(8)) + "<" + check_out(match.group(10)) + ">" + k[match.end():]
             print("updated gate", tidy(updated_sys))
             yield self.Transition([k], [tidy(updated_sys)], alpha)
-        for match in re.finditer(re_pre_cover, k):
+        for match in re.finditer(re_pre_cover, k): # Match on {}<> sequences where Covering can be applied.
             updated_sys = k[:match.start()] + "{" + check_out(match.group(1)) + "}<" + check_out(match.group(3)) + ">[" + \
                 match.group(2) + "^ " + k[match.end()+1:]
             print("updated", tidy(updated_sys))
