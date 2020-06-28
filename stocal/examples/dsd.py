@@ -64,12 +64,15 @@ re_post_cover = re.compile(
 
 # re_upper_migrate = re.compile(
 #     fr"{re_double.pattern}(<(\w+)\s(\w+)?[^<>:]*?>):{re_upper.pattern}?(\[(\3)\s[^\4]+?[^<>]*?\s*\])")   # Matches where upper strand migration can occur.
+#re_upper_migrate = re.compile(
+#    fr"{re_double.pattern}(<(\w+)\s*(\w+)?[^<>:]*?>):{re_upper.pattern}?(\[(\3)\s*(?!\4\]|\s*\])[^<>]*?\])"
+#)
 re_upper_migrate = re.compile(
-    fr"{re_double.pattern}(<(\w+)\s?(\w+)?[^<>:]*?>):{re_upper.pattern}?(\[(\3)\s(?!\4\])[^<>]*?\])"
+    fr"{re_double.pattern}(<(\w+)\s*(\w+)?[^<>:]*?>):{re_upper.pattern}?(\[(\3)\s*(?!\s*\])[^<>]*?\])"
 )
 #(\[[^<{\[\]}>]*?\])(<(\w+)\s?(\w+)?[^<>:]*?>):(<[^<\[{]*?>)?(\[(\3)\s(?!\4\])[^<>]*?\])
 re_lower_migrate = re.compile(
-    fr"{re_double.pattern}({{(\w+)\s(\w+)?[^<>:]*?\}})::{re_lower.pattern}?(\[(\3)\s[^\4]+?[^<>]*?\s*\])")  # Matches where lower strand migration can occur.
+    fr"{re_double.pattern}({{(\w+)\s*(\w+)?[^{{}}:]*?}})::{re_lower.pattern}?(\[(\3)\s(?!\4\])[^<>]*?\s*\])")  # Matches where lower strand migration can occur.
 re_upper_migrate_r = re.compile(
     fr"(\[\w[^<>]*?\s(\w+)\s*\]){re_upper.pattern}:(<[^<>:]*?(\2)\s*>){re_double.pattern}")  # Matches where upper strand rev migration can occur.
 re_lower_migrate_r = re.compile(
@@ -228,12 +231,17 @@ class BindingRule(stocal.TransitionRule):
             else:
                 yield from self.strand_to_strand_binding(k, l, re_upper_lab, re_lower_lab)
                 yield from self.strand_to_strand_binding(k, l, re_lower_lab, re_upper_lab)
+
     def strand_to_gate_binding(self, k, l, regex_1, regex_2):
+        print("k", k, "l", l, regex_1, regex_2)
         if re.search(regex_1, l) is not None:
+            print("new k", k, "l", l, regex_1, regex_2)
             for gate in re.finditer(re_gate, k):
+                print("gate", gate)
                 for match in re.finditer(regex_2, gate.group()):
                     for match_2 in re.finditer(regex_1, l):
                         if match.group() == match_2.group():
+                            print("HERE")
                             d_s = "[" + match.group() + "^]"
                             i = gate.start()
                             if regex_1 == re_lower_lab:
@@ -243,11 +251,13 @@ class BindingRule(stocal.TransitionRule):
                                     u_s_1 = "<" + k[gate.start(2) + 1:match.start() + i] + ">"
                                     u_s_2 = "<" + k[match.end() + 1 + i:gate.end(2) - 1] + ">"
                                     seq = k[:gate.start()] + seq_start + u_s_1 + d_s + seq_end + "::" + gate.group(1) + u_s_2 + k[gate.start(3):]
+                                    print(standardise(seq))
                                     yield self.Transition([k, l], [standardise(seq)], alpha)
                                 elif match.start() > gate.start(4) - i and match.end() < gate.end(4) - i:
                                     u_s_1 = "<" + k[gate.start(4) + 1:match.start() + i] + ">"
                                     u_s_2 = "<" + k[match.end() + i + 1:gate.end(4) - 1] + ">"
                                     seq = k[:gate.end(3)] + check_out(gate.group(5)) + "::" + seq_start + u_s_1 + d_s + u_s_2 + seq_end + k[gate.end():]
+                                    print(standardise(seq))
                                     yield self.Transition([k, l], [standardise(seq)], alpha)
                             else:
                                 seq_start = "<" + l[1:match_2.start()] + ">"
@@ -286,7 +296,7 @@ class BindingRule(stocal.TransitionRule):
 
 
 class UnbindingRule(stocal.TransitionRule):
-    """Splits two systems when a toehold unbinds"""
+    """Splits a system into two systems when a toehold unbinds"""
     Transition = stocal.MassAction
 
     def novel_reactions(self, kl):
@@ -431,7 +441,7 @@ class ReductionRule(stocal.TransitionRule):
 
 
 process = stocal.Process(
-    rules=[CoveringRule()]
+    rules=[BindingRule()]
 )
 
 if __name__ == '__main__':
@@ -462,15 +472,11 @@ if __name__ == '__main__':
     initial_state ={"{L'}<L>[S]<N^ R>:{N^* R'}[A B]":1}
     initial_state ={"{Z A^*}<Y A^>[B]{C}::{D}<E^ D>[G]":1}
     initial_state = {"[A]{B^*}::{L}<B^>[S]":1}
+    initial_state = {"{L'}<L>[S1]<S>:<L1>[S S2]<R>{R'}":1}
+    initial_state = {"<t^ x y>": 1, "{t^*}[x]:[y u^]":1}
 
     initial_state = {standardise(key): value for key, value in initial_state.items()}
-    #print("init 2", initial_state)
-    # re_lone_upper_1 = re.compile(f"^({re_upper.pattern})::|(?<=::)({re_upper.pattern})::")
-    #x = "<A B C>::<F G>[H^ I]{L}::<A B C>::<H>[Y^]<N>{Z}::<A B C>"
-    x = "{F}:<A B C>[D^]<M>{J}::<A B>::{F}<F>[G^]"
-    #print("X", x)
-    #z = standardise(x)
-    #print("STANDARDISE", z)
+
     traj = process.sample(initial_state, tmax=1000000000.)
     for _ in traj:
         print(traj.time, traj.state)
