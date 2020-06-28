@@ -33,6 +33,10 @@ class TestBindingRule(TestTransitionRule):
         m_a_6 = list(list(set(self.Rule.novel_reactions(self.Rule(), "{N^*}", "<N^>")))[0].products.keys())[0]
         self.assertEqual(m_a_6, "[N^]")
 
+        # Check an example from Figure 4 of the Lakin paper
+        m_a_7 = list(list(set(self.Rule.novel_reactions(self.Rule(), "<t^ x y>", "{t^*}[x]:[y u^]")))[0].products.keys())[0]
+        self.assertEqual(m_a_7, "[t^]<x y>:[x]:[y u^]")
+
     def test_strand_to_gate_binding_generates_a_b_c(self):
         # m_a_1 checks that the basic RP example from the Lakin paper yields the correct result.
         m_a_1 = list(list(set(self.Rule.novel_reactions(self.Rule(), "<L1 N^ S R1>", "{L' N^*}<L>[S R2]<R>{R'}")))[0].products.keys())[0]
@@ -102,6 +106,40 @@ class TestCoveringRule(TestTransitionRule):
         self.assertEqual(m_a_7, "{L'}<L>[S N^]<R>{R'}::[A B]")
         m_a_8 = list(list(set(self.Rule.novel_reactions(self.Rule(), "[C D]<A>:{L'}<L>[S]<N^ R>{N^* R'}::[A B]")))[0].products.keys())[0]
         self.assertEqual(m_a_8, "[C D]<A>:{L'}<L>[S N^]<R>{R'}::[A B]")
+
+
+class TestMigrationRule(TestTransitionRule):
+    from stocal.examples.dsd import MigrationRule
+    Rule = MigrationRule
+
+    def test_migration_rule_generates_a_b_c(self):
+        # m_a_1 checks that the basic RM example from the Lakin paper yields the correct result.
+        m_a_1 = list(list(set(self.Rule.novel_reactions(self.Rule(), "{L'}<L>[S1]<S R2>:<L1>[S S2]<R>{R'}")))[0].products.keys())[0]
+        self.assertEqual(m_a_1, "{L'}<L>[S1 S]<R2>:<L1 S>[S2]<R>{R'}")
+
+        # Check variants of m_a_1 where R2 and L1 are missing:
+        m_a_2 = list(list(set(self.Rule.novel_reactions(self.Rule(), "{L'}<L>[S1]<S>:<L1>[S S2]<R>{R'}")))[0].products.keys())[0]
+        self.assertEqual(m_a_2, "{L'}<L>[S1 S]:<L1 S>[S2]<R>{R'}")
+        m_a_3 = list(list(set(self.Rule.novel_reactions(self.Rule(), "{L'}<L>[S1]<S>:[S S2]<R>{R'}")))[0].products.keys())[0]
+        self.assertEqual(m_a_3, "{L'}<L>[S1 S]:<S>[S2]<R>{R'}")
+
+        # Test variants of m_a_1 but when the overhang is on the lower strand:
+        m_a_4 = list(list(set(self.Rule.novel_reactions(self.Rule(), "{L'}<L>[S1]{S R2}::{L1}[S S2]<R>{R'}")))[0].products.keys())[0]
+        self.assertEqual(m_a_4, "{L'}<L>[S1 S]{R2}::{L1 S}[S2]<R>{R'}")
+
+        # Check lower strand equivalents of m_a_2 and m_a_3
+        m_a_5 = list(list(set(self.Rule.novel_reactions(self.Rule(), "{L'}<L>[S1]{S}::{L1}[S S2]<R>{R'}")))[0].products.keys())[0]
+        self.assertEqual(m_a_5, "{L'}<L>[S1 S]::{L1 S}[S2]<R>{R'}")
+        m_a_6 = list(list(set(self.Rule.novel_reactions(self.Rule(), "{L'}<L>[S1]{S}::[S S2]<R>{R'}")))[0].products.keys())[0]
+        self.assertEqual(m_a_6, "{L'}<L>[S1 S]::{S}[S2]<R>{R'}")
+
+        # Check that RM is not applied on the RD example, as the two should be mutually exclusive.
+        m_a_7 = set(self.Rule.novel_reactions(self.Rule(), "{L'}<L>[S1]<S R>:<L2>[S]<R2>{R'}"))
+        self.assertEqual(m_a_7, set())
+        m_a_8 = set(self.Rule.novel_reactions(self.Rule(), "{L'}<L>[S1]{S R}::{L2}[S]<R2>{R'}"))
+        self.assertEqual(m_a_8, set())
+
+
 
 
 if __name__ == '__main__':
