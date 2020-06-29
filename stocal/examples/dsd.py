@@ -431,8 +431,12 @@ class DisplacementRule(stocal.TransitionRule):
                     strand_1 = tidy(start + "<" + check_out(match.group(3)) + ">" + check_out(match.group(7)))
                     strand_2 = tidy("<" + check_in(match.group(4)) + " " + match.group(2) + ">" + k[match.end()+2:])
             else:
-                strand_1 = tidy("{" + strand_1 + check_in(match.group(7)) + "}")
-                strand_2 = tidy(start + " " + check_out(match.group(6)) + "{" + check_out(match.group(3)) + "}" + k[match.end():])
+                if k[match.end():match.end()+1] == ":" and k[match.end()+1:match.end()+2] != ":":
+                    strand_1 = tidy(start + check_out(match.group(6)) + "{" + check_out(match.group(3)) + "}")
+                    strand_2 = tidy("{" + check_in(match.group(4)) + " " + match.group(5) + "}" + k[match.end()+1:])
+                else:
+                    strand_1 = tidy("{" + strand_1 + check_in(match.group(7)) + "}")
+                    strand_2 = tidy(start + " " + check_out(match.group(6)) + "{" + check_out(match.group(3)) + "}" + k[match.end():])
             print("k", k)
             print("strand_1", strand_1, "strand_2", strand_2)
             yield self.Transition([k], [strand_1 , strand_2], alpha)
@@ -483,10 +487,8 @@ if __name__ == '__main__':
     initial_state ={"{Z A^*}<Y A^>[B]{C}::{D}<E^ D>[G]":1}
     initial_state = {"[A]{B^*}::{L}<B^>[S]":1}
     initial_state = {"{L'}<L>[S1]<S>:<L1>[S S2]<R>{R'}":1}
-    initial_state = {"[t^ x]<y>:[y u^]":1}
-    initial_state = {"[t]{x y}::[x]:[y u]":1}
-    initial_state = {"[t^]<x y>:[x]::[y u^]":1}
-    initial_state = {"[t^]<x y>:<r>[x]{g}::[y u^]":1}
+    initial_state = {"[t^]{x y}::[x]:[y u^]":1}
+    initial_state = {"[t^]{x y}::{Z}[x]<r>:[y u^]":1}
 
     initial_state = {standardise(key): value for key, value in initial_state.items()}
 
