@@ -179,39 +179,44 @@ class TestDisplacementRule(TestTransitionRule):
         exp_res_4 = {"{x}", "[t^ x]{y}::[y u^]"}
         self.assertEqual(set(), set.difference(m_a_4,exp_res_4))
 
-        # m_a_3 checks that the Reduction rule does not get applied to the Migration example from Figure 4a of the Lakin paper.
+        # m_a_5 checks that the Displacement rule does not get applied to the Migration example from Figure 4a of the Lakin paper.
         m_a_5 = set(list(set(self.Rule.novel_reactions(self.Rule(), "[t^ x]<y>:[y u^]"))))
         self.assertEqual(set(), m_a_5)
+        # m_a_6 checks that the example from 4a with flipped orientation cannot yield displacement products.
+        m_a_6 = set(list(set(self.Rule.novel_reactions(self.Rule(), "[t^ x]{y}::[y u^]"))))
+        self.assertEqual(m_a_6, set())
 
-        # m_a_6 to m_a_10 check different variants of applying the reduction rule along upper strands when the toehold which is being
-        # displaced is connected along its lower strand to the next gate (left to right).
-        m_a_6 = set(list(set(self.Rule.novel_reactions(self.Rule(), "[t^]<x y>:[x]::[y u^]")))[0].products.keys())
-        exp_res_6 = {"[t^ x]<y>","<x>[y u^]"}
-        self.assertEqual(set(), set.difference(m_a_6,exp_res_6))
-
-        # More variances:
-        # m_a_13 = list(list(set(self.Rule.novel_reactions(self.Rule(), "[t^]{x y}::[x]:[y u^]")))[0].products.keys())[0]
-        # self.assertEqual(m_a_13, "[t^ x]{y}::{x}:[y u^]")
-
+        # Check that other systems where migration can occur cannot be displaced:
         m_a_7 = set(list(set(self.Rule.novel_reactions(self.Rule(), "[t^]<x y>:[x v]::[y u^]"))))
         self.assertEqual(set(),m_a_7)
+        m_a_8 = set(list(set(self.Rule.novel_reactions(self.Rule(), "[t^]{x y}::[x v]:[y u^]"))))
+        self.assertEqual(set(),m_a_8)
 
-        m_a_8 = set(list(set(self.Rule.novel_reactions(self.Rule(), "[t^]<x y>:<R>[x]::[y u^]")))[0].products.keys())
-        exp_res_8 = {"[t^ x]<y>", "<R x>[y u^]"}
-        self.assertEqual(set(),set.difference(m_a_8,exp_res_8))
+        # This test checks that applying the displacement rule along an upper strand works, when the toehold which is being
+        # displaced is connected along its lower strand to the next gate (left to right).
+        m_a_9 = set(list(set(self.Rule.novel_reactions(self.Rule(), "[t^]<x y>:[x]::[y u^]")))[0].products.keys())
+        exp_res_9 = {"[t^ x]<y>","<x>[y u^]"}
+        self.assertEqual(set(), set.difference(m_a_9,exp_res_9))
+        # This is a variant of m_a_6 but switching orientation.
+        m_a_10 = set(list(set(self.Rule.novel_reactions(self.Rule(), "[t^]{x y}::[x]:[y u^]")))[0].products.keys())
+        exp_res_10 = {"[t^ x]{y}","{x}[y u^]"}
+        self.assertEqual(set(), set.difference(m_a_10,exp_res_10))
 
-        m_a_9 = set(list(set(self.Rule.novel_reactions(self.Rule(), "[t^]<x y>:<r>[x]{g}::[y u^]")))[0].products.keys())
-        exp_res_9 = {"[t^ x]<y>{g}", "<r x>[y u^]"}
-        self.assertEqual(set(),set.difference(m_a_9,exp_res_9))
+        # More variants of m_a_9 and m_a_10:
+        m_a_11 = set(list(set(self.Rule.novel_reactions(self.Rule(), "[t^]<x y>:<R>[x]::[y u^]")))[0].products.keys())
+        exp_res_11 = {"[t^ x]<y>", "<R x>[y u^]"}
+        self.assertEqual(set(),set.difference(m_a_11,exp_res_11))
+        m_a_12 = set(list(set(self.Rule.novel_reactions(self.Rule(), "[t^]{x y}::{R}[x]:[y u^]")))[0].products.keys())
+        exp_res_12 = {"[t^ x]{y}", "{R x}[y u^]"}
+        self.assertEqual(set(),set.difference(m_a_12,exp_res_12))
 
+        m_a_13 = set(list(set(self.Rule.novel_reactions(self.Rule(), "[t^]<x y>:<r>[x]{g}::[y u^]")))[0].products.keys())
+        exp_res_13 = {"[t^ x]<y>{g}", "<r x>[y u^]"}
+        self.assertEqual(set(),set.difference(m_a_13,exp_res_13))
+        m_a_14 = set(list(set(self.Rule.novel_reactions(self.Rule(), "[t^]{x y}::{r}[x]<g>:[y u^]")))[0].products.keys())
+        exp_res_14 = {"[t^ x]<g>{y}", "{r x}[y u^]"}
+        self.assertEqual(set(),set.difference(m_a_14,exp_res_14))
 
-
-
-        # # Check the migration rule is applied correctly to the example from Figure 4a) of Lakin's paper.
-        # m_a_11 = list(list(set(self.Rule.novel_reactions(self.Rule(), "[t^ x]<y>:[y u^]")))[0].products.keys())[0]
-        # self.assertEqual(m_a_11, "[t^ x y]:<y>[u^]")
-        # m_a_12 = list(list(set(self.Rule.novel_reactions(self.Rule(), "[t^ x]{y}::[y u^]")))[0].products.keys())[0]
-        # self.assertEqual(m_a_12, "[t^ x y]::{y}[u^]")
 
 if __name__ == '__main__':
     unittest.main()
