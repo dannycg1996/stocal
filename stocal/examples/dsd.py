@@ -70,9 +70,15 @@ re_post_cover = re.compile(
 re_upper_migrate = re.compile(
     fr"{re_double.pattern}(<(\w+)\s*(\w+)?[^<>:]*?>):{re_upper.pattern}?(\[(\3)\s*(?!\s*\])[^<>]*?\])"
 )
+# re_upper_migrate = re.compile(
+#     fr"{re_double.pattern}(<(\w+)\s*(\w+)?[^<>:]*?>):{re_upper.pattern}?(\[(\3)(?!\s*\][^:]*::{re_gate.pattern}|\s*\][^:]*$)[^<>]*?\s*\])")
+
 #(\[[^<{\[\]}>]*?\])(<(\w+)\s?(\w+)?[^<>:]*?>):(<[^<\[{]*?>)?(\[(\3)\s(?!\4\])[^<>]*?\])
 re_lower_migrate = re.compile(
-    fr"{re_double.pattern}({{(\w+)\s*(\w+)?[^{{}}:]*?}})::{re_lower.pattern}?(\[(\3)\s(?!\4\])[^<>]*?\s*\])")  # Matches where lower strand migration can occur.
+    fr"{re_double.pattern}({{(\w+)\s*(\w+)?[^{{}}:]*?}})::{re_lower.pattern}?(\[(\3)\s(?!\s*\]|[^:]*:{re_gate.pattern})[^<>]*?\s*\])")  # Matches where lower strand migration can occur.
+# re_lower_migrate = re.compile(
+#     fr"{re_double.pattern}({{(\w+)\s*(\w+)?[^{{}}:]*?}})::{re_lower.pattern}?(\[(\3)(?!\s*\][^:]*:{re_gate.pattern}|\s*\][^:]*$)[^<>]*?\s*\])")
+
 re_upper_migrate_r = re.compile(
     fr"(\[\w[^<>]*?\s(\w+)\s*\]){re_upper.pattern}:(<[^<>:]*?(\2)\s*>){re_double.pattern}")  # Matches where upper strand rev migration can occur.
 re_lower_migrate_r = re.compile(
@@ -81,7 +87,7 @@ re_lower_migrate_r = re.compile(
 re_reduce_upper = re.compile(
     fr"{re_double.pattern}<(\w+)([^<>:]*?)>:{re_upper.pattern}?\[(\2)\]{re_upper.pattern}?{re_lower.pattern}?")
 re_reduce_lower = re.compile(
-    fr"{re_double.pattern}{{(\w+)([^{{}}:]*?)}}::{re_lower.pattern}\[(\2)\]{re_upper.pattern}?{re_lower.pattern}?")
+    fr"{re_double.pattern}{{(\w+)([^{{}}:]*?)}}::{re_lower.pattern}?\[(\2)\]{re_upper.pattern}?{re_lower.pattern}?")
 re_reduce_upper_r = re.compile(
     fr"{re_lower.pattern}?{re_upper.pattern}?\[(\w)\]{re_upper.pattern}?:<([^<>:]*?)(\3)>{re_double.pattern}"
 )
@@ -402,32 +408,37 @@ class MigrationRule(stocal.TransitionRule):
             yield self.Transition([k], [seq], alpha)
 
 
-class ReductionRule(stocal.TransitionRule):
+class DisplacementRule(stocal.TransitionRule):
     """Splits two strings when a toehold unbinds"""
     Transition = stocal.MassAction
 
     def novel_reactions(self, k):
         k = tidy(k)
-        yield from self.reduction_fwd(k, re_reduce_upper)
-        yield from self.reduction_fwd(k, re_reduce_lower)
-        yield from self.reduction_rev(k, re_reduce_upper_r)
-        yield from self.reduction_rev(k, re_reduce_lower_r)
+        yield from self.displacement_fwd(k, re_reduce_upper)
+        yield from self.displacement_fwd(k, re_reduce_lower)
+        yield from self.displacement_rev(k, re_reduce_upper_r)
+        yield from self.displacement_rev(k, re_reduce_lower_r)
 
-    def reduction_fwd(self, k, regex_1):
+    def displacement_fwd(self, k, regex_1):
         for match in re.finditer(regex_1, k):
             strand_1 = check_in(match.group(4)) + " " + match.group(2) + " "
             start = k[:match.end(1)-1] + " " + match.group(2) + "]"
             if regex_1 == re_reduce_upper:
-                strand_1 = tidy("<" + strand_1 + check_in(match.group(6)) + ">")
-                strand_2 = tidy(start + "<" + check_out(match.group(3)) + ">" + check_out(match.group(7)) + k[match.end():])
+                if k[match.end():match.end()+2] != "::":
+                    strand_1 = tidy("<" + strand_1 + check_in(match.group(6)) + ">")
+                    strand_2 = tidy(start + "<" + check_out(match.group(3)) + ">" + check_out(match.group(7)) + k[match.end():])
+                else:
+                    strand_1 = tidy(start + "<" + check_out(match.group(3)) + ">" + check_out(match.group(7)))
+                    strand_2 = tidy("<" + check_in(match.group(4)) + " " + match.group(2) + ">" + k[match.end()+2:])
             else:
                 strand_1 = tidy("{" + strand_1 + check_in(match.group(7)) + "}")
                 strand_2 = tidy(start + " " + check_out(match.group(6)) + "{" + check_out(match.group(3)) + "}" + k[match.end():])
+            print("k", k)
             print("strand_1", strand_1, "strand_2", strand_2)
 
             yield self.Transition([k], [strand_1 , strand_2], alpha)
 
-    def reduction_rev(self, k, regex_1):
+    def displacement_rev(self, k, regex_1):
         for match in re.finditer(regex_1, k):
             if regex_1 == re_reduce_upper_r:
                 strand_1 = "<" + check_in(match.group(2)) + " " + match.group(3) + " " + check_in(match.group(4)) + ">"
@@ -441,7 +452,7 @@ class ReductionRule(stocal.TransitionRule):
 
 
 process = stocal.Process(
-    rules=[BindingRule()]
+    rules=[DisplacementRule()]
 )
 
 if __name__ == '__main__':
@@ -473,7 +484,10 @@ if __name__ == '__main__':
     initial_state ={"{Z A^*}<Y A^>[B]{C}::{D}<E^ D>[G]":1}
     initial_state = {"[A]{B^*}::{L}<B^>[S]":1}
     initial_state = {"{L'}<L>[S1]<S>:<L1>[S S2]<R>{R'}":1}
-    initial_state = {"<t^ x y>": 1, "{t^*}[x]:[y u^]":1}
+    initial_state = {"[t^ x]<y>:[y u^]":1}
+    initial_state = {"[t]{x y}::[x]:[y u]":1}
+    initial_state = {"[t^]<x y>:[x]::[y u^]":1}
+    initial_state = {"[t^]<x y>:<r>[x]{g}::[y u^]":1}
 
     initial_state = {standardise(key): value for key, value in initial_state.items()}
 
