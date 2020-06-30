@@ -73,7 +73,7 @@ class TestUnbindingRule(TestTransitionRule):
         exp_res_4 = {"{F}<B C^ D G>[H^]{J}::{K}<I L>[M^]<N>{O}", "{A C^* E}", "{A}<B>[C^]{E}::{K}<D G H^ I L>[M^]<N>{O}", "{F H^* J}",
                      "{A}<B>[C^]{E}::{F}<D G>[H^]<I L M^ N>{J}", "{K M^* O}"}
         self.assertEqual(set(), set.difference(m_a_4, exp_res_4))
-
+#
 
 class TestCoveringRule(TestTransitionRule):
     from stocal.examples.dsd import CoveringRule
@@ -106,7 +106,7 @@ class TestMigrationRule(TestTransitionRule):
     from stocal.examples.dsd import MigrationRule
     Rule = MigrationRule
 
-    def test_migration_rule_generates_a_b_c(self):
+    def test_migration_rule_fwd_generates_a_b_c(self):
         # m_a_1 checks that the basic RM example from the Lakin paper yields the correct result.
         m_a_1 = list(list(set(self.Rule.novel_reactions(self.Rule(), "{L'}<L>[S1]<S R2>:<L1>[S S2]<R>{R'}")))[0].products.keys())[0]
         self.assertEqual(m_a_1, "{L'}<L>[S1 S]<R2>:<L1 S>[S2]<R>{R'}")
@@ -149,9 +149,48 @@ class TestMigrationRule(TestTransitionRule):
         m_a_13 = list(list(set(self.Rule.novel_reactions(self.Rule(), "[t^]<x y>:[x v]::[y u^]")))[0].products.keys())[0]
         self.assertEqual("[t^ x]<y>:<x>[v]::[y u^]", m_a_13)
 
-        # # m_a_1 checks that the basic RM example from the Lakin paper yields the correct result.
-        # m_a_1 = list(list(set(self.Rule.novel_reactions(self.Rule(), "{L'}<L>[S1]<S R2>:<L1>[S S2]<R>{R'}")))[0].products.keys())[0]
-        # self.assertEqual(m_a_1, "{L'}<L>[S1 S]<R2>:<L1 S>[S2]<R>{R'}")
+    def test_migration_rule_rev_generates_a_b_c(self):
+        # m_a_1 checks that the basic RM example from the Lakin paper yields the correct result.
+        m_a_1 = list(list(set(self.Rule.novel_reactions(self.Rule(), "{L'}<L>[S1 S]<R2>:<L1 S>[S2]<R>{R'}")))[0].products.keys())[0]
+        self.assertEqual(m_a_1, "{L'}<L>[S1]<S R2>:<L1>[S S2]<R>{R'}")
+
+        # Check variants of m_a_1 where R2 and L1 are missing:
+        m_a_2 = list(list(set(self.Rule.novel_reactions(self.Rule(), "{L'}<L>[S1 S]:<L1 S>[S2]<R>{R'}")))[0].products.keys())[0]
+        self.assertEqual(m_a_2, "{L'}<L>[S1]<S>:<L1>[S S2]<R>{R'}")
+        m_a_3 = list(list(set(self.Rule.novel_reactions(self.Rule(), "{L'}<L>[S1 S]:<S>[S2]<R>{R'}")))[0].products.keys())[0]
+        self.assertEqual(m_a_3, "{L'}<L>[S1]<S>:[S S2]<R>{R'}")
+        #
+        # # Test variants of m_a_1 but when the overhang is on the lower strand:
+        # m_a_4 = list(list(set(self.Rule.novel_reactions(self.Rule(), "{L'}<L>[S1]{S R2}::{L1}[S S2]<R>{R'}")))[0].products.keys())[0]
+        # self.assertEqual(m_a_4, "{L'}<L>[S1 S]{R2}::{L1 S}[S2]<R>{R'}")
+        #
+        # # Check lower strand equivalents of m_a_2 and m_a_3
+        # m_a_5 = list(list(set(self.Rule.novel_reactions(self.Rule(), "{L'}<L>[S1]{S}::{L1}[S S2]<R>{R'}")))[0].products.keys())[0]
+        # self.assertEqual(m_a_5, "{L'}<L>[S1 S]::{L1 S}[S2]<R>{R'}")
+        # m_a_6 = list(list(set(self.Rule.novel_reactions(self.Rule(), "{L'}<L>[S1]{S}::[S S2]<R>{R'}")))[0].products.keys())[0]
+        # self.assertEqual(m_a_6, "{L'}<L>[S1 S]::{S}[S2]<R>{R'}")
+        #
+        # # Check that RM is not applied on the RD example, as the two should be mutually exclusive.
+        # m_a_7 = set(self.Rule.novel_reactions(self.Rule(), "{L'}<L>[S1]<S R>:<L2>[S]<R2>{R'}"))
+        # self.assertEqual(m_a_7, set())
+        # m_a_8 = set(self.Rule.novel_reactions(self.Rule(), "{L'}<L>[S1]{S R}::{L2}[S]<R2>{R'}"))
+        # self.assertEqual(m_a_8, set())
+        #
+        # # Check that the RM rule is not applied to the RD example from Figure 4a).
+        # m_a_9 = set(self.Rule.novel_reactions(self.Rule(), "[t^]<x y>:[x]:[y u^]"))
+        # self.assertEqual(m_a_9, set())
+        # m_a_10 = set(self.Rule.novel_reactions(self.Rule(), "[t^]{x y}::[x]::[y u^]"))
+        # self.assertEqual(m_a_10, set())
+        #
+        # # Check the migration rule is applied correctly to the example from Figure 4a) of Lakin's paper.
+        # m_a_11 = list(list(set(self.Rule.novel_reactions(self.Rule(), "[t^ x]<y>:[y u^]")))[0].products.keys())[0]
+        # self.assertEqual(m_a_11, "[t^ x y]:<y>[u^]")
+        # m_a_12 = list(list(set(self.Rule.novel_reactions(self.Rule(), "[t^ x]{y}::[y u^]")))[0].products.keys())[0]
+        # self.assertEqual(m_a_12, "[t^ x y]::{y}[u^]")
+        #
+        # # Check additional variants:
+        # m_a_13 = list(list(set(self.Rule.novel_reactions(self.Rule(), "[t^]<x y>:[x v]::[y u^]")))[0].products.keys())[0]
+        # self.assertEqual("[t^ x]<y>:<x>[v]::[y u^]", m_a_13)
 
 
 class TestDisplacementRule(TestTransitionRule):
