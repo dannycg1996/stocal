@@ -66,7 +66,7 @@ re_upper_migrate = re.compile(
     fr"{re_double.pattern}(<(\w+)[^<>:]*?>):{re_upper.pattern}?(\[(\3)\s*(?!\s*\])[^<>]*?\])"
 )
 re_lower_migrate = re.compile(  # Matches where lower strand migration can occur (left to right).
-    fr"{re_double.pattern}({{(\w+)[^{{}}:]*?}})::{re_lower.pattern}?(\[(\3)\s(?!\s*\]|[^:]*:{re_gate.pattern})[^<>]*?\s*\])")
+    fr"{re_double.pattern}({{(\w+)[^{{}}:]*?}})::{re_lower.pattern}?(\[(\3)\s(?!\s*\]|[^:]*:{re_gate.pattern})[^<>]*?\])")
 # re_upper_migrate_r = re.compile(
 #      fr"(\[\w[^<>]*?\s(\w+)\s*\]){re_upper.pattern}:(<[^<>:]*?(\2)\s*>){re_double.pattern}")  # Matches where upper strand rev migration can occur.
 re_upper_migrate_r = re.compile(
