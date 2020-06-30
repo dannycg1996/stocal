@@ -155,6 +155,10 @@ class TestMigrationRule(TestTransitionRule):
         m_a_13 = list(list(set(self.Rule.novel_reactions(self.Rule(), "[t^]<x y>:[x v]::[y u^]")))[0].products.keys())[0]
         self.assertEqual("[t^ x]<y>:<x>[v]::[y u^]" ,m_a_13)
 
+        # # m_a_1 checks that the basic RM example from the Lakin paper yields the correct result.
+        # m_a_1 = list(list(set(self.Rule.novel_reactions(self.Rule(), "{L'}<L>[S1]<S R2>:<L1>[S S2]<R>{R'}")))[0].products.keys())[0]
+        # self.assertEqual(m_a_1, "{L'}<L>[S1 S]<R2>:<L1 S>[S2]<R>{R'}")
+
 
 class TestDisplacementRule(TestTransitionRule):
     from stocal.examples.dsd import DisplacementRule
