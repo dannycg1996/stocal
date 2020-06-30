@@ -17,25 +17,20 @@ class TestBindingRule(TestTransitionRule):
         m_a_2 = list(list(set(self.Rule.novel_reactions(self.Rule(), "<L N^ R>", "{L' N^* R'}")))[0].products.keys())[0]
         self.assertEqual(m_a_2, "{L'}<L>[N^]<R>{R'}")
 
-        # m_a_3 and m_a_4 check that the Binding Rule can yield multiple different bindings from the same inputs (if appropriate)
-        m_a_3 = list(list(set(self.Rule.novel_reactions(self.Rule(), "{S' N^* L' R'}", "<L N^ M N^>")))[0].products.keys())[0]
-        m_a_4 = list(list(set(self.Rule.novel_reactions(self.Rule(), "{S' N^* L' R'}", "<L N^ M N^>")))[1].products.keys())[0]
-        if m_a_3 == "{S'}<L N^ M>[N^]{L' R'}":
-            self.assertEqual(m_a_3, "{S'}<L N^ M>[N^]{L' R'}")
-            self.assertEqual(m_a_4, "{S'}<L>[N^]<M N^>{L' R'}")
-        else:
-            self.assertEqual(m_a_3, "{S'}<L>[N^]<M N^>{L' R'}")
-            self.assertEqual(m_a_4, "{S'}<L N^ M>[N^]{L' R'}")
+        # m_a_3 checks that the Binding Rule can yield multiple different bindings from the same inputs (if appropriate)
+        m_a_3 = set(list(set(self.Rule.novel_reactions(self.Rule(),"{S' N^* L' R'}", "<L N^ M N^>")))[0].products.keys())
+        exp_res_3 = {"{S'}<L N^ M>[N^]{L' R'}", "{S'}<L>[N^]<M N^>{L' R'}"}
+        self.assertEqual(set(), set.difference(m_a_3,exp_res_3))
 
         # Check slight variants of the Binding Rule, where the yielded result doesn't all 5 strands i.e. {}<>[]<>{}
-        m_a_5 = list(list(set(self.Rule.novel_reactions(self.Rule(), "{ N^* L' R'}", "<L N^ M>")))[0].products.keys())[0]
-        self.assertEqual(m_a_5, "<L>[N^]<M>{L' R'}")
-        m_a_6 = list(list(set(self.Rule.novel_reactions(self.Rule(), "{N^*}", "<N^>")))[0].products.keys())[0]
-        self.assertEqual(m_a_6, "[N^]")
+        m_a_4 = list(list(set(self.Rule.novel_reactions(self.Rule(), "{ N^* L' R'}", "<L N^ M>")))[0].products.keys())[0]
+        self.assertEqual(m_a_4, "<L>[N^]<M>{L' R'}")
+        m_a_5 = list(list(set(self.Rule.novel_reactions(self.Rule(), "{N^*}", "<N^>")))[0].products.keys())[0]
+        self.assertEqual(m_a_5, "[N^]")
 
         # Check an example from Figure 4 of the Lakin paper
-        m_a_7 = list(list(set(self.Rule.novel_reactions(self.Rule(), "<t^ x y>", "{t^*}[x]:[y u^]")))[0].products.keys())[0]
-        self.assertEqual(m_a_7, "[t^]<x y>:[x]:[y u^]")
+        m_a_6 = list(list(set(self.Rule.novel_reactions(self.Rule(), "<t^ x y>", "{t^*}[x]:[y u^]")))[0].products.keys())[0]
+        self.assertEqual(m_a_6, "[t^]<x y>:[x]:[y u^]")
 
     def test_strand_to_gate_binding_generates_a_b_c(self):
         # m_a_1 checks that the basic RP example from the Lakin paper yields the correct result.
