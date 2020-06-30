@@ -135,7 +135,7 @@ def fix_upper_gate(sys, match_obj, i):
 def fix_lower_gate(sys, match_obj, i):
     """This function takes a system sys, a match object and a starting index. The match object identifies gates which consist solely of
      a lower strand, merges it with a gate to the right, and then returns the updated system"""
-    if match_obj.group(2+i) is not None: # Match object has 6 groups: ({ })::({ })(< >)([ ])(< >)({ })
+    if match_obj.group(2+i) is not None:  # Match object has 6 groups: ({ })::({ })(< >)([ ])(< >)({ })
         strand = sys[:match_obj.start()] + sys[match_obj.end(1+i)+1:match_obj.start(2+i)+1] +\
             match_obj.group(1+i)[1:len(match_obj.group(1+i))-1] + " " + sys[match_obj.start(2+i)+1:]
     else:
@@ -154,7 +154,7 @@ def merge_gates(sys):
     if upper_g_1 is not None:
         if upper_g_1.group(4) is not None:  # If 1st match condition of upper_g_1 is met.
             return merge_gates(fix_upper_gate(sys, upper_g_1, 0))
-        else: # If 2nd match condition of upper_g_1 is met.
+        else:  # If 2nd match condition of upper_g_1 is met.
             return merge_gates(fix_upper_gate(sys, upper_g_1, 6))
     elif upper_g_2 is not None:
         if upper_g_2.group(4) is not None:  # If gate before the upper strand gate had an upper strand after the double strand
@@ -168,7 +168,7 @@ def merge_gates(sys):
         else:  # If 2nd match condition of lower_g_1 is met.
             return merge_gates(fix_lower_gate(sys, lower_g_1, 6))
     elif lower_g_2 is not None:
-        if lower_g_2.group(5) is not None: # If gate before the lower strand gate had a lower strand after the double strand
+        if lower_g_2.group(5) is not None:  # If gate before the lower strand gate had a lower strand after the double strand
             strand = sys[:lower_g_2.end(5)-1] + " " + lower_g_2.group(6)[1:]
         else:
             strand = sys[:lower_g_2.start(6)-1] + lower_g_2.group(6)
