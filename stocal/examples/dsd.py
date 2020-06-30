@@ -63,16 +63,16 @@ re_post_cover = re.compile(
 # Matches where the Covering rule can be applied on a gate, after the d_s (or across two gates)
 
 re_upper_migrate = re.compile(
-    fr"{re_double.pattern}(<(\w+)[^<>:]*?>):{re_upper.pattern}?(\[(\3)\s(?!\s*\])[^<>]*?\])"
+    fr"{re_double.pattern}(<(\w+)[^<>:]*?>):{re_upper.pattern}?(\[(\3)\s(?!\s*\])[^\]]*?\])"
 )
 re_lower_migrate = re.compile(  # Matches where lower strand migration can occur (left to right).
-    fr"{re_double.pattern}({{(\w+)[^{{}}:]*?}})::{re_lower.pattern}?(\[(\3)\s(?!\s*\]|[^:]*:{re_gate.pattern})[^<>]*?\])")
+    fr"{re_double.pattern}({{(\w+)[^{{}}:]*?}})::{re_lower.pattern}?(\[(\3)\s(?!\s*\])[^\]]*?\])")
 # re_upper_migrate_r = re.compile(
 #      fr"(\[\w[^<>]*?\s(\w+)\s*\]){re_upper.pattern}:(<[^<>:]*?(\2)\s*>){re_double.pattern}")  # Matches where upper strand rev migration can occur.
 re_upper_migrate_r = re.compile(
-    fr"(\[[^\]]*(?<=\s)(\w+)\s*\]){re_upper.pattern}:(<[^<>:]*?(\2)\s*>){re_double.pattern}")  # Matches where upper strand rev migration can occur.
+    fr"(\[[^\]]*(?<=\s)(\w+)\s*\]){re_upper.pattern}?:(<[^<>:]*?(\2)\s*>){re_double.pattern}")  # Matches where upper strand rev migration can occur.
 re_lower_migrate_r = re.compile(
-    fr"(\[\w[^<>]*?\s(\w+)\s*\]){re_lower.pattern}::({{[^<>:]*?(\2)\s*}}){re_double.pattern}") # Matches where lower strand rev migration can occur.
+    fr"(\[\w[^<>]*?\s(\w+)\s*\]){re_lower.pattern}?::({{[^<>:]*?(\2)\s*}}){re_double.pattern}") # Matches where lower strand rev migration can occur.
 
 re_displace_upper = re.compile(
     fr"{re_double.pattern}<(\w+)([^<>:]*?)>:{re_upper.pattern}?\[(\2)\]{re_upper.pattern}?{re_lower.pattern}?")
@@ -297,7 +297,7 @@ class UnbindingRule(stocal.TransitionRule):
     def toehold_unbinding(self, kl):
         """This function loops through a system gate by gate, and identifies double strands which can be unbound i.e.
         double strands of the form [A^]. It then yields the two separate parts, which would be produced when that double strand
-        (toehold) unbinded."""
+        (toehold) unbound."""
         for gate in re.finditer(re_gate, kl):  # Loop through the system gate by gate.
             d_s = re.search(re_short_double_th, gate.group())  # If one exists, retrieve the unbindable double strand in the gate.
             if d_s is not None:
@@ -382,11 +382,11 @@ class MigrationRule(stocal.TransitionRule):
             d_s_1 = match.group()[:match.start(2)-i] + "]"
             d_s_2 = "[" + match.group(2) + " " + match.group(6)[1:]
             if regex_2 == re_lower:
-                strand_1 = "{" + match.group(2) + " " + match.group(3)[1:]
+                strand_1 = "{" + match.group(2) + " " + check_in(match.group(3)) + "}"
                 strand_2 = match.group()[match.start(4)-i: match.start(5)-i] + "}"
                 bracket = "::"
             else:
-                strand_1 = "<" + match.group(2) + " " + match.group(3)[1:]
+                strand_1 = "<" + match.group(2) + " " + check_in(match.group(3)) + ">"
                 strand_2 = match.group()[match.start(4)-i: match.start(5)-i] + ">"
                 bracket = ":"
             seq = tidy(k[:match.start()] + d_s_1 + strand_1 + bracket + strand_2 + d_s_2 + k[match.end():])
