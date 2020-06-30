@@ -63,15 +63,14 @@ re_post_cover = re.compile(
 # Matches where the Covering rule can be applied on a gate, after the d_s (or across two gates)
 
 re_upper_migrate = re.compile(
-    fr"{re_double.pattern}(<(\w+)\s*(\w+)?[^<>:]*?>):{re_upper.pattern}?(\[(\3)\s*(?!\s*\])[^<>]*?\])"
+    fr"{re_double.pattern}(<(\w+)[^<>:]*?>):{re_upper.pattern}?(\[(\3)\s*(?!\s*\])[^<>]*?\])"
 )
 re_lower_migrate = re.compile(  # Matches where lower strand migration can occur (left to right).
-    fr"{re_double.pattern}({{(\w+)\s*(\w+)?[^{{}}:]*?}})::{re_lower.pattern}?(\[(\3)\s(?!\s*\]|[^:]*:{re_gate.pattern})[^<>]*?\s*\])")
+    fr"{re_double.pattern}({{(\w+)[^{{}}:]*?}})::{re_lower.pattern}?(\[(\3)\s(?!\s*\]|[^:]*:{re_gate.pattern})[^<>]*?\s*\])")
 # re_upper_migrate_r = re.compile(
 #      fr"(\[\w[^<>]*?\s(\w+)\s*\]){re_upper.pattern}:(<[^<>:]*?(\2)\s*>){re_double.pattern}")  # Matches where upper strand rev migration can occur.
 re_upper_migrate_r = re.compile(
     fr"(\[[^\]]*(?<=\s)(\w+)\s*\]){re_upper.pattern}:(<[^<>:]*?(\2)\s*>){re_double.pattern}")  # Matches where upper strand rev migration can occur.
-#new
 re_lower_migrate_r = re.compile(
     fr"(\[\w[^<>]*?\s(\w+)\s*\]){re_lower.pattern}::({{[^<>:]*?(\2)\s*}}){re_double.pattern}") # Matches where lower strand rev migration can occur.
 
@@ -368,14 +367,14 @@ class MigrationRule(stocal.TransitionRule):
             print("MATCH", match)
             i = match.start()
             d_s_1 = match.group(1)[:len(match.group(1))-1] + " " + match.group(3) + "]"
-            d_s_2 = "[" + match.group()[match.end(7)-i:match.end(6)-i]
+            d_s_2 = "[" + match.group()[match.end(6)-i:match.end(5)-i]
             if regex_2 == re_lower:
                 strand_1 = "{" + match.group()[match.end(3)-i:match.end(2)-i]
-                strand_2 = "{" + check_in(match.group(5)) + " " + match.group(3) + "}"
+                strand_2 = "{" + check_in(match.group(4)) + " " + match.group(3) + "}"
                 bracket = "::"
             else:
                 strand_1 = "<" + match.group()[match.end(3)-i:match.end(2)-i]
-                strand_2 = "<" + check_in(match.group(5)) + " " + match.group(3) + ">"
+                strand_2 = "<" + check_in(match.group(4)) + " " + match.group(3) + ">"
                 bracket = ":"
             seq = tidy(k[:match.start()] + d_s_1 + strand_1 + bracket + strand_2 + d_s_2 + k[match.end():])
             print("seq", seq)
