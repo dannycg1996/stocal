@@ -44,8 +44,8 @@ re_double_lab = re.compile(r'(\w)(?=\^)(?=[^<>{}]*])')  # Returns the label of a
 re_upper_lab = re.compile(r'(\w)(?=\^)(?=[^<>]*>)')  # Returns the labels of upper toeholds.
 re_lower_lab = re.compile(r'(\w)(?=\^\*)(?=[^{}]*})')  # Returns labels of lower toeholds
 
-re_open = re.compile(r'<|\[|{')  # Matches on open brackets [, { and <
-re_close = re.compile(r'(>|\]|})')  # Matches on close brackets ], } and >
+re_open = re.compile(r'[<\[{]')  # Matches on open brackets [, { and <
+re_close = re.compile(r'([>\]}])')  # Matches on close brackets ], } and >
 re_empty = re.compile(r'(<(?:\s)*>)|({(?:\s)*})|(\[(?:\s)*])')  # Matches on empty brackets like <>, {} and [ ].
 re_large_spaces = re.compile(r'(\s{2,})')  # Matches on spaces of length > 1
 re_spaces = re.compile(r'(?<=[:>}\]<{\[])(\s+)|(\s+)(?=[:>\]}])')  # Matches on unnecessary spaces.
@@ -338,7 +338,7 @@ class CoveringRule(stocal.TransitionRule):
                     check_out(match.group(8)) + "<" + check_out(match.group(10)) + ">" + k[match.end():]
             print("updated gate", tidy(updated_sys))
             yield self.Transition([k], [tidy(updated_sys)], alpha)
-        for match in re.finditer(re_pre_cover, k): # Match on {}<> sequences where Covering can be applied.
+        for match in re.finditer(re_pre_cover, k):  # Match on {}<> sequences where Covering can be applied.
             updated_sys = k[:match.start()] + "{" + check_out(match.group(1)) + "}<" + check_out(match.group(3)) + ">[" + \
                 match.group(2) + "^ " + k[match.end()+1:]
             print("updated", tidy(updated_sys))
@@ -425,7 +425,7 @@ class DisplacementRule(stocal.TransitionRule):
                     strand_2 = tidy(start + " " + check_out(match.group(6)) + "{" + check_out(match.group(3)) + "}" + k[match.end():])
             print("k", k)
             print("strand_1", strand_1, "strand_2", strand_2)
-            yield self.Transition([k], [strand_1 , strand_2], alpha)
+            yield self.Transition([k], [strand_1, strand_2], alpha)
 
     def displacement_rev(self, k, regex_1):
         for match in re.finditer(regex_1, k):
