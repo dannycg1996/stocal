@@ -229,15 +229,11 @@ class BindingRule(stocal.TransitionRule):
                 yield from self.strand_to_strand_binding(k, l, re_lower_lab, re_upper_lab)
 
     def strand_to_gate_binding(self, k, l, regex_1, regex_2):
-        print("k", k, "l", l, regex_1, regex_2)
         if re.search(regex_1, l) is not None:
-            print("new k", k, "l", l, regex_1, regex_2)
             for gate in re.finditer(re_gate, k):
-                print("gate", gate)
                 for match in re.finditer(regex_2, gate.group()):
                     for match_2 in re.finditer(regex_1, l):
                         if match.group() == match_2.group():
-                            print("HERE")
                             d_s = "[" + match.group() + "^]"
                             i = gate.start()
                             if regex_1 == re_lower_lab:
