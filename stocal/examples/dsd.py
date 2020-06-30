@@ -268,7 +268,7 @@ class BindingRule(stocal.TransitionRule):
                                     yield self.Transition([k, l], [standardise(seq)], alpha)
 
     def strand_to_strand_binding(self, k, l, regex_1, regex_2):
-        #TODO: Tidy this up; the two part As are the same, just with the halves in different orders. Likewise for Part B.
+        # TODO: Tidy this up; the two part As are the same, just with the halves in different orders. Likewise for Part B.
         for match_1 in re.finditer(regex_1, k):
             for match_2 in re.finditer(regex_2, l):
                 if match_1.group() == match_2.group():
