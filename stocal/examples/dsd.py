@@ -63,7 +63,7 @@ re_post_cover = re.compile(
 # Matches where the Covering rule can be applied on a gate, after the d_s (or across two gates)
 
 re_upper_migrate = re.compile(
-    fr"{re_double.pattern}(<(\w+)[^<>:]*?>):{re_upper.pattern}?(\[(\3)\s*(?!\s*\])[^<>]*?\])"
+    fr"{re_double.pattern}(<(\w+)[^<>:]*?>):{re_upper.pattern}?(\[(\3)\s(?!\s*\])[^<>]*?\])"
 )
 re_lower_migrate = re.compile(  # Matches where lower strand migration can occur (left to right).
     fr"{re_double.pattern}({{(\w+)[^{{}}:]*?}})::{re_lower.pattern}?(\[(\3)\s(?!\s*\]|[^:]*:{re_gate.pattern})[^<>]*?\])")
