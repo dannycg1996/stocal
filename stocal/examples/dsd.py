@@ -79,10 +79,10 @@ re_displace_upper = re.compile(
 re_displace_lower = re.compile(
     fr"{re_double.pattern}{{(\w+)([^{{}}:]*?)}}::{re_lower.pattern}?\[(\2)\]{re_upper.pattern}?{re_lower.pattern}?")
 re_displace_upper_r = re.compile(
-    fr"{re_lower.pattern}?{re_upper.pattern}?\[(\w)\]{re_upper.pattern}?:<([^<>:]*?)(\3)>{re_double.pattern}"
+    fr"{re_lower.pattern}?{re_upper.pattern}?\[(\w+)\]{re_upper.pattern}?:<([^<>:]*?)(\3)>{re_double.pattern}"
 )
 re_displace_lower_r = re.compile(
-    fr"{re_lower.pattern}?{re_upper.pattern}?\[(\w)\]{re_lower.pattern}?::{{([^<>:]*?)(\3)}}{re_double.pattern}"
+    fr"{re_lower.pattern}?{re_upper.pattern}?\[(\w+)\]{re_lower.pattern}?::{{([^<>:]*?)(\3)}}{re_double.pattern}"
 )
 #"{L'}<L>[S]<R S>:<L2>[S1]<L>{L'}" : 60
 
@@ -429,13 +429,37 @@ class DisplacementRule(stocal.TransitionRule):
 
     def displacement_rev(self, k, regex_1):
         for match in re.finditer(regex_1, k):
+            print("match", match.group())
             if regex_1 == re_displace_upper_r:
-                strand_1 = "<" + check_in(match.group(2)) + " " + match.group(3) + " " + check_in(match.group(4)) + ">"
-                strand_2 = check_out(match.group(1)) + "<" + check_out(match.group(5)) + ">[" + match.group(3) + " " + match.group(7)[1:]
+                if k[match.start()-2:match.start()] != "::":
+                    strand_1 = "<" + check_in(match.group(2)) + " " + match.group(3) + " " + check_in(match.group(4)) + ">"
+                    strand_2 = k[:match.start()] + check_out(match.group(1)) + "<" + check_out(match.group(5)) + ">[" + match.group(3) + " " + match.group(7)[1:] + k[match.end():]
+                else:
+                    strand_1 = tidy(k[:match.start()-2]) + "<" + match.group(3) + " " + check_in(match.group(4)) + ">"
+                    print("strand 1", strand_1)
+                    strand_2 = check_out(match.group(1)) + "<" + match.group(5) + ">[" + match.group(3) + " " + check_in(match.group(7)) + "]" + k[match.end(7):]
+                    print("strand_2", strand_2)
             else:
-                strand_1 = "{" + check_in(match.group(1)) + " " + match.group(3) + " " + check_in(match.group(4)) + "}"
-                strand_2 = "{" + check_out(match.group(5)) + "}" + check_out(match.group(2)) + "[" + match.group(3) + " " + match.group(7)[1:]
-            strand_2 = k[:match.start()] + strand_2 + k[match.end():]
+                if k[match.start()-1:match.start()] == ":" and k[match.start()-2:match.start()-1] != ":":
+                    #TEMP
+                    print("1", match.group(1))
+                    print("2", match.group(2))
+                    print("3", match.group(3))
+                    print("4", match.group(4))
+                    print("5", match.group(5))
+                    print("6", match.group(6))
+                    print("7", match.group(7))
+                    print("TEMP")
+                    strand_1 = tidy(k[:match.start()-1] + "{" + match.group(3) + " " + check_in(match.group(4)) + "}")
+                    print("strand 1", strand_1)
+                    strand_2 =  "{" + match.group(5) + "}" + check_out(match.group(2)) +"[" + match.group(3) + " " + check_in(match.group(7)) + "]" + k[match.end(7):]
+                    print("strand_2", strand_2)
+                else:
+                    print("4444444")
+                    strand_1 = "{" + check_in(match.group(1)) + " " + match.group(3) + " " + check_in(match.group(4)) + "}"
+                    strand_2 = k[:match.start()] + "{" + check_out(match.group(5)) + "}" + check_out(match.group(2)) + "[" + \
+                        match.group(3) + " " + match.group(7)[1:] + k[match.end():]
+            #strand_2 = k[:match.start()] + strand_2 + k[match.end():]
             print("A:", tidy(strand_1), "B:", tidy(strand_2))
             yield self.Transition([k], [tidy(strand_1), tidy(strand_2)], alpha)
 
