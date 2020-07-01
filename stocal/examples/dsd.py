@@ -263,23 +263,20 @@ class BindingRule(stocal.TransitionRule):
                             yield self.Transition([k, l], [standardise(sys)], alpha)
 
     def strand_to_strand_binding(self, k, l, regex_1, regex_2):
-        # TODO: Tidy this up; the two part As are the same, just with the halves in different orders. Likewise for Part B.
         for match_1 in re.finditer(regex_1, k):
             for match_2 in re.finditer(regex_2, l):
                 if match_1.group() == match_2.group():
                     d_s = "[" + match_2.group() + "^]"
+                    part_a = l[:match_2.start()] + re.search(re_close, l[match_2.start():]).group()
+                    part_b = k[:match_1.start()] + re.search(re_close, k[match_1.start():]).group()
+                    part_c = re.search(re_open, k[:match_1.end() + 1]).group()
+                    part_d = re.search(re_open, l[:match_2.end()]).group()
                     if regex_1 == re_upper_lab:
-                        part_a = l[:match_2.start()] + re.search(re_close, l[match_2.start():]).group() + \
-                             k[:match_1.start()] + re.search(re_close, k[match_1.start():]).group()
-                        part_b = re.search(re_open, k[:match_1.end() + 1]).group() + k[match_1.end() + 1:] + \
-                                 re.search(re_open, l[:match_2.end()]).group() + l[match_2.end() + 2:]
+                        sys = part_a + part_b + d_s + part_c + k[match_1.end() + 1:] + part_d + l[match_2.end() + 2:]
                     else:
-                        part_a = k[:match_1.start()] + re.search(re_close, k[match_1.start():]).group() +\
-                                 l[:match_2.start()] + re.search(re_close, l[match_2.start():]).group()
-                        part_b = re.search(re_open, l[:match_2.end()]).group() + l[match_2.end() + 1:] + \
-                                 re.search(re_open, k[:match_1.end() + 1]).group() + k[match_1.end() + 2:]
-                    print("final", tidy(part_a + d_s + part_b))
-                    yield self.Transition([k, l], [tidy(part_a + d_s + part_b)], alpha)
+                        sys = part_b + part_a + d_s + part_d + l[match_2.end() + 1:] + part_c + k[match_1.end() + 2:]
+                    print("final", tidy(sys))
+                    yield self.Transition([k, l], [tidy(sys)], alpha)
 
 
 class UnbindingRule(stocal.TransitionRule):
