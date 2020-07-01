@@ -212,6 +212,24 @@ def standardise(sys):
     return sys
 
 
+def rotate(strand):
+    # TODO: Comment and unit test this function
+    if re.search(re_gate, strand) is None:
+        domains = check_in(strand).split(" ")[::-1]
+        new_strand = ""
+        if re.search(re_upper, strand) is not None:
+            for domain in domains:
+                new_strand = new_strand + " " + domain
+            return "{" + new_strand[1:] + "}"
+        elif re.search(re_lower, strand) is not None:
+            for domain in domains:
+                new_strand = new_strand + " " + domain
+            return "<" + new_strand[1:] + ">"
+    else:
+        print("Erroneous input to rotate")
+        return ""
+
+
 class BindingRule(stocal.TransitionRule):
     """Join any two strings into their concatenations"""
     Transition = stocal.MassAction
@@ -471,6 +489,8 @@ if __name__ == '__main__':
     initial_state = {"[t^]{x y}::[x]:[y u^]":1}
     initial_state = {"[t^]{x y}::{Z}[x]<r>:[y u^]":1}
 
+    x = "<A B^ CAT>"
+    print("rotate", rotate(x))
     initial_state = {standardise(key): value for key, value in initial_state.items()}
 
     traj = process.sample(initial_state, tmax=1000000000.)
