@@ -85,7 +85,7 @@ re_displace_lower_r = re.compile(
 )
 
 # The four regexes below match non-normalised patterns. For example, {A}<B>[C]<D>{E}::{F}<G>[H] is not normalised, and must be
-# rewritten as {A}<B>[C]{E}::{F}<D G>[H] to ensure that reactions are reversible and the results are clear"""
+# rewritten as {A}<B>[C]{E}::{F}<D G>[H] to ensure that reactions are reversible and the results are clear
 re_format_1 = re.compile(
     f"({re_double.pattern}{re_upper.pattern}{re_lower.pattern}?::{re_lower.pattern}?{re_upper.pattern}{re_double.pattern})")
 re_format_2 = re.compile(
@@ -217,16 +217,17 @@ class BindingRule(stocal.TransitionRule):
     Transition = stocal.MassAction
 
     def novel_reactions(self, k, l):
-        if re.search(re_gate, k) is None or re.search(re_gate, l) is None:
-            if re.search(re_gate, k) is not None or re.search(re_gate, l) is not None:
-                # TODO: Can I avoid calling this function 4 times? Maybe 2 times instead?
-                yield from self.strand_to_gate_binding(k, l, re_upper_lab, re_lower_lab)
-                yield from self.strand_to_gate_binding(l, k, re_upper_lab, re_lower_lab)
-                yield from self.strand_to_gate_binding(k, l, re_lower_lab, re_upper_lab)
-                yield from self.strand_to_gate_binding(l, k, re_lower_lab, re_upper_lab)
-            else:
-                yield from self.strand_to_strand_binding(k, l, re_upper_lab, re_lower_lab)
-                yield from self.strand_to_strand_binding(k, l, re_lower_lab, re_upper_lab)
+        gate_k = re.search(re_gate, k)
+        gate_l = re.search(re_gate, l)
+        if (gate_k is None and gate_l is not None) or (gate_l is None and gate_k is not None):
+            # TODO: Can I avoid calling this function 4 times? Maybe 2 times instead?
+            yield from self.strand_to_gate_binding(k, l, re_upper_lab, re_lower_lab)
+            yield from self.strand_to_gate_binding(l, k, re_upper_lab, re_lower_lab)
+            yield from self.strand_to_gate_binding(k, l, re_lower_lab, re_upper_lab)
+            yield from self.strand_to_gate_binding(l, k, re_lower_lab, re_upper_lab)
+        elif gate_k is None or gate_l is None:
+            yield from self.strand_to_strand_binding(k, l, re_upper_lab, re_lower_lab)
+            yield from self.strand_to_strand_binding(k, l, re_lower_lab, re_upper_lab)
 
     def strand_to_gate_binding(self, k, l, regex_1, regex_2):
         if re.search(regex_1, l) is not None:
