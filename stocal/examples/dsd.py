@@ -57,35 +57,35 @@ re_lone_lower_1 = re.compile(f"^{re_lower.pattern}:{re_gate.pattern}|(?<=[^:]:){
 re_lone_lower_2 = re.compile(f"{re_gate.pattern}:{re_lower.pattern}$")
 
 #  Matches where the Covering rule can be applied on a gate, before the d_s
-re_pre_cover = re.compile(
-    fr"{{([^}}]*?)(\w+)\^\*\s*}}<([^>]*)(\2)\^\s*>")
+re_pre_cover = re.compile(fr"{{([^}}]*?)(\w+)\^\*\s*}}<([^>]*)(\2)\^\s*>")
 # Matches where the Covering rule can be applied on a gate, after the d_s (or across two gates)
 re_post_cover = re.compile(
     fr"<(\w+)\^\s*([^>]*)>(:?){{(\1)\^\*\s*([^}}]*)}}|(\w+)\^\*([^}}]*)}}::{re_lower.pattern}?<(\6)\^\s*([^>]*)>")
 # Matches where upper strand migration can occur (left to right).
-re_upper_migrate = re.compile(
-    fr"{re_double.pattern}(<(\w+)[^<>:]*?>):{re_upper.pattern}?(\[(\3)(?!\])[^\]]*?\])")
+re_upper_migrate = re.compile(fr"{re_double.pattern}(<(\w+)[^<>:]*?>):{re_upper.pattern}?(\[(\3)(?!\])[^\]]*?\])")
 # Matches where lower strand migration can occur (left to right).
-re_lower_migrate = re.compile(
-    fr"{re_double.pattern}({{(\w+)[^{{}}:]*?}})::{re_lower.pattern}?(\[(\3)(?!\])[^\]]*?\])")
+re_lower_migrate = re.compile(fr"{re_double.pattern}({{(\w+)[^{{}}:]*?}})::{re_lower.pattern}?(\[(\3)(?!\])[^\]]*?\])")
 # Matches where upper strand rev migration can occur (right to left).
-re_upper_migrate_r = re.compile(
-    fr"(\[[^\]]*(?<=\s)(\w+)\]){re_upper.pattern}?:(<[^<>:]*?(\2)>){re_double.pattern}")
+re_upper_migrate_r = re.compile(fr"(\[[^\]]*(?<=\s)(\w+)\]){re_upper.pattern}?:(<[^<>:]*?(\2)>){re_double.pattern}")
 # Matches where lower strand rev migration can occur (right to left).
-re_lower_migrate_r = re.compile(
-    fr"(\[[^<>]*(?<=\s)(\w+)\]){re_lower.pattern}?::({{[^<>:]*?(\2)}}){re_double.pattern}")
+re_lower_migrate_r = re.compile(fr"(\[[^<>]*(?<=\s)(\w+)\]){re_lower.pattern}?::({{[^<>:]*?(\2)}}){re_double.pattern}")
 
+# Matches where upper strand displacement (left to right) can occur.
 re_displace_upper = re.compile(
     fr"{re_double.pattern}<(\w+)([^<>:]*?)>:{re_upper.pattern}?\[(\2)\]{re_upper.pattern}?{re_lower.pattern}?")
+# Matches where lower strand displacement (left to right) can occur.
 re_displace_lower = re.compile(
     fr"{re_double.pattern}{{(\w+)([^{{}}:]*?)}}::{re_lower.pattern}?\[(\2)\]{re_upper.pattern}?{re_lower.pattern}?")
+# Matches where upper strand displacement (left to right) can occur.
 re_displace_upper_r = re.compile(
-    fr"{re_lower.pattern}?{re_upper.pattern}?\[(\w+)\]{re_upper.pattern}?:<([^<>:]*?)(\3)>{re_double.pattern}"
-)
+    fr"{re_lower.pattern}?{re_upper.pattern}?\[(\w+)\]{re_upper.pattern}?:<([^<>:]*?)(\3)>{re_double.pattern}")
+# Matches where lower strand displacement (left to right) can occur.
 re_displace_lower_r = re.compile(
     fr"{re_lower.pattern}?{re_upper.pattern}?\[(\w+)\]{re_lower.pattern}?::{{([^<>:]*?)(\3)}}{re_double.pattern}"
 )
 
+# The four regexes below match non-normalised patterns. For example, {A}<B>[C]<D>{E}::{F}<G>[H] is not normalised, and must be
+# rewritten as {A}<B>[C]{E}::{F}<D G>[H] to ensure that reactions are reversible and the results are clear"""
 re_format_1 = re.compile(
     f"({re_double.pattern}{re_upper.pattern}{re_lower.pattern}?::{re_lower.pattern}?{re_upper.pattern}{re_double.pattern})")
 re_format_2 = re.compile(
