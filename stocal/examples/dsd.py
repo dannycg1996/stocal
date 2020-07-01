@@ -220,7 +220,6 @@ class BindingRule(stocal.TransitionRule):
         gate_k = re.search(re_gate, k)
         gate_l = re.search(re_gate, l)
         if (gate_k is None and gate_l is not None) or (gate_l is None and gate_k is not None):
-            # TODO: Can I avoid calling this function 4 times? Maybe 2 times instead?
             yield from self.strand_to_gate_binding(k, l, re_upper_lab, re_lower_lab)
             yield from self.strand_to_gate_binding(l, k, re_upper_lab, re_lower_lab)
             yield from self.strand_to_gate_binding(k, l, re_lower_lab, re_upper_lab)
@@ -230,43 +229,38 @@ class BindingRule(stocal.TransitionRule):
             yield from self.strand_to_strand_binding(k, l, re_lower_lab, re_upper_lab)
 
     def strand_to_gate_binding(self, k, l, regex_1, regex_2):
-        if re.search(regex_1, l) is not None:
-            for gate in re.finditer(re_gate, k):
-                for match in re.finditer(regex_2, gate.group()):
-                    for match_2 in re.finditer(regex_1, l):
-                        if match.group() == match_2.group():
-                            d_s = "[" + match.group() + "^]"
-                            i = gate.start()
-                            if regex_1 == re_lower_lab:
-                                seq_start = "{" + l[1:match_2.start()] + "}"
-                                seq_end = "{" + l[match_2.end() + 2:len(l) - 1] + "}"
-                                if match.start() > gate.start(2) - i and match.end() < gate.end(2) - i:
-                                    u_s_1 = "<" + k[gate.start(2) + 1:match.start() + i] + ">"
-                                    u_s_2 = "<" + k[match.end() + 1 + i:gate.end(2) - 1] + ">"
-                                    seq = k[:gate.start()] + seq_start + u_s_1 + d_s + seq_end + "::" + gate.group(1) + u_s_2 + k[gate.start(3):]
-                                    print(standardise(seq))
-                                    yield self.Transition([k, l], [standardise(seq)], alpha)
-                                elif match.start() > gate.start(4) - i and match.end() < gate.end(4) - i:
-                                    u_s_1 = "<" + k[gate.start(4) + 1:match.start() + i] + ">"
-                                    u_s_2 = "<" + k[match.end() + i + 1:gate.end(4) - 1] + ">"
-                                    seq = k[:gate.end(3)] + check_out(gate.group(5)) + "::" + seq_start + u_s_1 + d_s + u_s_2 + seq_end + k[gate.end():]
-                                    print(standardise(seq))
-                                    yield self.Transition([k, l], [standardise(seq)], alpha)
-                            else:
-                                seq_start = "<" + l[1:match_2.start()] + ">"
-                                seq_end = "<" + l[match_2.end() + 2:len(l) - 1] + ">"
-                                if match.start() > gate.start(1) - i and match.end() < gate.end(1) - i:
-                                    l_s_1 = "{" + k[gate.start(1) + 1:match.start() + i] + "}"
-                                    l_s_2 = "{" + k[match.end() + i + 2:gate.end(1) - 1] + "}"
-                                    seq = k[:gate.start()] + l_s_1 + seq_start + d_s + seq_end + l_s_2 + ":" + k[gate.end(1):]
-                                    print("seq", standardise(seq))
-                                    yield self.Transition([k, l], [standardise(seq)], alpha)
-                                elif match.start() > gate.start(5) - i and match.end() < gate.end(5) - i:
-                                    l_s_1 = "{" + k[gate.start(5) + 1:match.start() + i] + "}"
-                                    l_s_2 = "{" + k[match.end() + i + 2:gate.end(5) - 1] + "}"
-                                    seq = k[:gate.end(4)] + ":" + l_s_1 + seq_start + d_s + seq_end + l_s_2 + k[gate.end():] #("SEQ SECOND LOWER", seq)
-                                    print(seq, "seq")
-                                    yield self.Transition([k, l], [standardise(seq)], alpha)
+        for gate in re.finditer(re_gate, k):
+            for match in re.finditer(regex_1, gate.group()):
+                for match_2 in re.finditer(regex_2, l):
+                    if match.group() == match_2.group():
+                        d_s = "[" + match.group() + "^]"
+                        i = gate.start()
+                        if regex_1 == re_upper_lab:
+                            l_s_1 = "{" + l[1:match_2.start()] + "}"
+                            l_s_2 = "{" + l[match_2.end() + 2:len(l) - 1] + "}"
+                            if match.start() > gate.start(2) - i and match.end() < gate.end(2) - i:
+                                u_s_1 = "<" + k[gate.start(2) + 1:match.start() + i] + ">"
+                                u_s_2 = "<" + k[match.end() + 1 + i:gate.end(2) - 1] + ">"
+                                sys = k[:gate.start()] + l_s_1 + u_s_1 + d_s + l_s_2 + "::" + gate.group(1) + u_s_2 + k[gate.start(3):]
+                                yield self.Transition([k, l], [standardise(sys)], alpha)
+                            elif match.start() > gate.start(4) - i and match.end() < gate.end(4) - i:
+                                u_s_1 = "<" + k[gate.start(4) + 1:match.start() + i] + ">"
+                                u_s_2 = "<" + k[match.end() + i + 1:gate.end(4) - 1] + ">"
+                                sys = k[:gate.end(3)] + check_out(gate.group(5)) + "::" + l_s_1 + u_s_1 + d_s + u_s_2 + l_s_2 + k[gate.end():]
+                                yield self.Transition([k, l], [standardise(sys)], alpha)
+                        else:
+                            u_s_1 = "<" + l[1:match_2.start()] + ">"
+                            u_s_2 = "<" + l[match_2.end() + 2:len(l) - 1] + ">"
+                            if match.start() > gate.start(1) - i and match.end() < gate.end(1) - i:
+                                l_s_1 = "{" + k[gate.start(1) + 1:match.start() + i] + "}"
+                                l_s_2 = "{" + k[match.end() + i + 2:gate.end(1) - 1] + "}"
+                                sys = k[:gate.start()] + l_s_1 + u_s_1 + d_s + u_s_2 + l_s_2 + ":" + k[gate.end(1):]
+                                yield self.Transition([k, l], [standardise(sys)], alpha)
+                            elif match.start() > gate.start(5) - i and match.end() < gate.end(5) - i:
+                                l_s_1 = "{" + k[gate.start(5) + 1:match.start() + i] + "}"
+                                l_s_2 = "{" + k[match.end() + i + 2:gate.end(5) - 1] + "}"
+                                sys = k[:gate.end(4)] + ":" + l_s_1 + u_s_1 + d_s + u_s_2 + l_s_2 + k[gate.end():] #("SEQ SECOND LOWER", seq)
+                            yield self.Transition([k, l], [standardise(sys)], alpha)
 
     def strand_to_strand_binding(self, k, l, regex_1, regex_2):
         # TODO: Tidy this up; the two part As are the same, just with the halves in different orders. Likewise for Part B.
