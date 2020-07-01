@@ -56,19 +56,21 @@ re_lone_upper_2 = re.compile(f"{re_gate.pattern}::({re_upper.pattern})$")
 re_lone_lower_1 = re.compile(f"^{re_lower.pattern}:{re_gate.pattern}|(?<=[^:]:){re_lower.pattern}:{re_gate.pattern}")
 re_lone_lower_2 = re.compile(f"{re_gate.pattern}:{re_lower.pattern}$")
 
+#  Matches where the Covering rule can be applied on a gate, before the d_s
 re_pre_cover = re.compile(
-    fr"{{([^}}]*?)(\w+)\^\*\s*}}<([^>]*)(\2)\^\s*>")  # Matches where the Covering rule can be applied on a gate, before the d_s
+    fr"{{([^}}]*?)(\w+)\^\*\s*}}<([^>]*)(\2)\^\s*>")
+# Matches where the Covering rule can be applied on a gate, after the d_s (or across two gates)
 re_post_cover = re.compile(
     fr"<(\w+)\^\s*([^>]*)>(:?){{(\1)\^\*\s*([^}}]*)}}|(\w+)\^\*([^}}]*)}}::{re_lower.pattern}?<(\6)\^\s*([^>]*)>")
-# Matches where the Covering rule can be applied on a gate, after the d_s (or across two gates)
-
+# Matches where upper strand migration can occur (left to right).
 re_upper_migrate = re.compile(
-    fr"{re_double.pattern}(<(\w+)[^<>:]*?>):{re_upper.pattern}?(\[(\3)\s(?!\s*\])[^\]]*?\])"
-)
-re_lower_migrate = re.compile(  # Matches where lower strand migration can occur (left to right).
+    fr"{re_double.pattern}(<(\w+)[^<>:]*?>):{re_upper.pattern}?(\[(\3)(?!\])[^\]]*?\])")
+# Matches where lower strand migration can occur (left to right).
+re_lower_migrate = re.compile(
     fr"{re_double.pattern}({{(\w+)[^{{}}:]*?}})::{re_lower.pattern}?(\[(\3)\s(?!\s*\])[^\]]*?\])")
+# Matches where upper strand rev migration can occur.
 re_upper_migrate_r = re.compile(
-    fr"(\[[^\]]*(?<=\s)(\w+)\s*\]){re_upper.pattern}?:(<[^<>:]*?(\2)\s*>){re_double.pattern}")  # Matches where upper strand rev migration can occur.
+    fr"(\[[^\]]*(?<=\s)(\w+)\s*\]){re_upper.pattern}?:(<[^<>:]*?(\2)\s*>){re_double.pattern}")
 re_lower_migrate_r = re.compile(
     fr"(\[\w[^<>]*?\s(\w+)\s*\]){re_lower.pattern}?::({{[^<>:]*?(\2)\s*}}){re_double.pattern}") # Matches where lower strand rev migration can occur.
 
