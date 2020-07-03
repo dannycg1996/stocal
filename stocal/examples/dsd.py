@@ -453,8 +453,29 @@ class DisplacementRule(stocal.TransitionRule):
             yield self.Transition([k], [tidy(strand_1), tidy(strand_2)], alpha)
 
 
+class LeakageRule(stocal.TransitionRule):
+    """Splits two strings when a toehold unbinds"""
+    Transition = stocal.MassAction
+
+    def novel_reactions(self, k, l):
+        gate_k = re.search(re_gate, k)
+        gate_l = re.search(re_gate, l)
+        if (gate_k is None and gate_l is not None) or (gate_l is None and gate_k is not None):
+            yield from self.leaking(k, l)
+            yield from self.leaking(l, k)
+
+    def leaking(self, k, l):
+        for gate in re.finditer(re_gate, k):
+            if re.search(re_short_double_th, gate.group(3)) is None:
+                re_strand = re.sub(r'\^', "\\^", check_in(gate.group(3)))
+                print(re_strand, "re_strand")
+                for match in re.finditer(fr'{re_strand}', l):
+                    print("match", match)
+                    yield self.Transition([k], [k], alpha)
+
+
 process = stocal.Process(
-    rules=[DisplacementRule()]
+    rules=[LeakageRule()]
 )
 
 if __name__ == '__main__':
@@ -488,9 +509,12 @@ if __name__ == '__main__':
     initial_state = {"{L'}<L>[S1]<S>:<L1>[S S2]<R>{R'}":1}
     initial_state = {"[t^]{x y}::[x]:[y u^]":1}
     initial_state = {"[t^]{x y}::{Z}[x]<r>:[y u^]":1}
+    initial_state = {"<A B^ C>":1, "[A B^ C]":1}
+    # x = "A B^ C"
+    # re_test = re.compile(fr'{x}')
+    # x = re.sub(r'\^', "\\^", x)
+    # print("test", re.search(re_test, x))
 
-    x = "<A B^ CAT>"
-    print("rotate", rotate(x))
     initial_state = {standardise(key): value for key, value in initial_state.items()}
 
     traj = process.sample(initial_state, tmax=1000000000.)
