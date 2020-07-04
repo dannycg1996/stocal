@@ -471,5 +471,29 @@ class TestDisplacementRule(TestTransitionRule):
         self.assertEqual(set(), set.difference(r_d_26, exp_res_26))
 
 
+class TestLeakageRule(unittest.TestCase):
+    from stocal.examples.dsd import LeakageRule
+    Rule = LeakageRule
+
+    def test_lakin_l_s_example(self):
+        # Test that the basic LS example from the Lakin paper can be replicated with the Leakage Rule. Note that the invader strand
+        # in this example can bind as either an upper strand or a lower strand. This explains the two pairs of answers.
+        l_s_1 = set(list(set(self.Rule.novel_reactions(self.Rule(), "<L1 S R1>", "{L'}<L>[S]<R>{R'}")))[0].products.keys())
+        exp_res_1 = {"<L S R>", "{L'}<L1>[S]<R1>{R'}", "{L' S R'}", "{R1}<L>[S]<R>{L1}"}
+        self.assertEqual(set(), set.difference(l_s_1, exp_res_1))
+
+    def test_lakin_l_s_example_rotated(self):
+        # Test the (rotated) basic LS example from the Lakin paper can be reproduced with the Leakage Rule. Note that the invader strand
+        # in this example can bind as either an upper strand or a lower strand. This explains the two pairs of answers.
+        l_s_2 = set(list(set(self.Rule.novel_reactions(self.Rule(), "{L1 S R1}", "{L'}<L>[S]<R>{R'}")))[0].products.keys())
+        exp_res_2 = {"<L S R>", "{L1}<L>[S]<R>{R1}", "{L' S R'}", "{L'}<R1>[S]<L1>{R'}"}
+        self.assertEqual(set(), set.difference(l_s_2, exp_res_2))
+
+    def test_that_leakage_does_not_apply_to_short_double_toeholds(self):
+        # Test that the leakage rule does not yield any results when the short double strand has form [N^].
+        l_s_3 = set(list(set(self.Rule.novel_reactions(self.Rule(), "{L1 S R1}", "{L'}<L>[S^]<R>{R'}"))))
+        self.assertEqual(set(), l_s_3)
+
+
 if __name__ == '__main__':
     unittest.main()
