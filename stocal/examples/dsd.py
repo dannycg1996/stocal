@@ -461,17 +461,37 @@ class LeakageRule(stocal.TransitionRule):
         gate_k = re.search(re_gate, k)
         gate_l = re.search(re_gate, l)
         if (gate_k is None and gate_l is not None) or (gate_l is None and gate_k is not None):
-            yield from self.leaking(k, l)
-            yield from self.leaking(l, k)
+            yield from self.strand_leak(k, l)
+            yield from self.strand_leak(l, k)
 
-    def leaking(self, k, l):
+    def strand_leak(self, k, l):
         for gate in re.finditer(re_gate, k):
             if re.search(re_short_double_th, gate.group(3)) is None:
                 re_strand = re.sub(r'\^', "\\^", check_in(gate.group(3)))
-                print(re_strand, "re_strand")
-                for match in re.finditer(fr'{re_strand}', l):
-                    print("match", match)
-                    yield self.Transition([k], [k], alpha)
+                in_l = check_in(l)  # Sequence of domains within the strand l
+                rot_l = check_in(rotate(l))  # Sequence of domains within the rotated version of l.
+                leaked_u_s = "<" + check_in(gate.group(2)) + " " + check_in(gate.group(3)) + " " + check_in(gate.group(4)) + ">"
+                leaked_l_s = "{" + check_in(gate.group(1)) + " " + check_in(gate.group(3)) + " " + check_in(gate.group(5)) + "}"
+                if re.search(re_upper, l) is not None:
+                    for match in re.finditer(fr'{re_strand}', check_in(l)):
+                        new_sys = k[:gate.start(2)] + "<" + in_l[:match.start()] + ">" + gate.group(3) + "<" + \
+                                  in_l[match.end():] + ">" + k[gate.end(4):]
+                        yield self.Transition([k, l], [tidy(new_sys), tidy(leaked_u_s)], alpha)
+                    for match in re.finditer(fr'{re_strand}', rot_l):
+                        new_sys = k[:gate.start()] + "{" + rot_l[:match.start()] + "}" + k[gate.start(2):gate.end(4)] +\
+                                  "{" + rot_l[match.end():] + "}" + k[gate.end():]
+                        yield self.Transition([k, l], [tidy(new_sys), tidy(leaked_l_s)], alpha)
+                else:
+                    for match in re.finditer(fr'{re_strand}', check_in(l)):
+                        new_sys = k[:gate.start()] + "{" + in_l[:match.start()] + "}" + k[gate.start(2):gate.end(4)] + \
+                                  "{" + in_l[match.end():] + "}" + k[gate.end():]
+                        yield self.Transition([k, l], [tidy(new_sys), tidy(leaked_l_s)], alpha)
+                    for match in re.finditer(fr'{re_strand}', rot_l):
+                        new_sys = k[:gate.start(2)] + "<" + rot_l[:match.start()] + ">" + gate.group(3) + \
+                                       "<" + rot_l[match.end():] + ">" + k[gate.end(4):]
+                        yield self.Transition([k, l], [tidy(new_sys), tidy(leaked_u_s)], alpha)
+
+
 
 
 process = stocal.Process(
@@ -488,6 +508,7 @@ if __name__ == '__main__':
     initial_state = {"{L'}<L>[S1]<S R>:<L2>[S]<R2>{R'}" : 60}
     initial_state = {"{L'}<L>[S]<L2>:<R S>[S1]<R2>{R'}" : 60}
     initial_state = {"{L'}<L>[S]{L2}::{R S}[S1]<R2>{R'}" : 60}
+    initial_state = {"<L1 S R1>":1, "{L'}<L>[S]<R>{R'}":1}
 
     #initial_state = {"{L'}<L>[S1]{S R}::{L2}[S]<R2>{R'}" : 60}
     #initial_state = {"{A}<B>[C^]<D>:{E F^* G}<H>[I]<J>{K}": 60, "<Z F^ X>": 60}
@@ -510,6 +531,9 @@ if __name__ == '__main__':
     initial_state = {"[t^]{x y}::[x]:[y u^]":1}
     initial_state = {"[t^]{x y}::{Z}[x]<r>:[y u^]":1}
     initial_state = {"<A B^ C>":1, "[A B^ C]":1}
+    initial_state = {"<L1 S T R1>":1, "{L'}<L>[T S]<R>{R'}":1}
+    initial_state = {"{L1 S R1}":1, "{L'}<L>[S]<R>{R'}":1}
+
     # x = "A B^ C"
     # re_test = re.compile(fr'{x}')
     # x = re.sub(r'\^', "\\^", x)
