@@ -554,9 +554,29 @@ class TestLeakageRule(unittest.TestCase):
         # Test the LS rule when the invader strand is a lower strand which can only cause a leak if it rotates into an upper strand.
         # Variant of l_s_8 but with longer sequences of domains.
         l_s_12 = set(list(set(self.Rule.novel_reactions(self.Rule(), "{L1 LA T^ S RA R1}",
-                                                       "{L' L2}<L LB>[S T^]<RB R>{R2 R'}")))[0].products.keys())
+                                                        "{L' L2}<L LB>[S T^]<RB R>{R2 R'}")))[0].products.keys())
         exp_res_12 = {"<L LB S T^ RB R>", "{L' L2}<R1 RA>[S T^]<LA L1>{R2 R'}"}
         self.assertEqual(set(), set.difference(l_s_12, exp_res_12))
+
+    def test_leakage_rule_does_not_displace_an_upper_strand_attached_to_a_previous_gate(self):
+        # Test the LS rule does not displace an upper strand which connects directly to the previous gate.
+        l_s_13 = set(list(set(self.Rule.novel_reactions(self.Rule(), "<L1 S T R1>", "[A]<B>::{L'}<L>[S T]<R>{R'}"))))
+        self.assertEqual(set(), l_s_13)
+
+    def test_leakage_rule_does_not_displace_an_upper_strand_attached_to_a_following_gate(self):
+        # Test the LS rule does not displace an upper strand which connects directly to the following gate.
+        l_s_14 = set(list(set(self.Rule.novel_reactions(self.Rule(), "<L1 S T R1>", "[A]<B>:{L'}<L>[S T]<R>{R'}::<C>[D]"))))
+        self.assertEqual(set(), l_s_14)
+
+    def test_leakage_rule_does_not_displace_a_lower_strand_attached_to_a_previous_gate(self):
+        # Test the LS rule does not displace a lower strand which connects directly to the previous gate.
+        l_s_15 = set(list(set(self.Rule.novel_reactions(self.Rule(), "{L1 S R1}", "[A]<B>:{L'}<L>[S^]<R>{R'}"))))
+        self.assertEqual(set(), l_s_15)
+
+    def test_leakage_rule_does_not_displace_a_lower_strand_attached_to_a_following_gate(self):
+        # Test the LS rule does not displace an lower strand which connects directly to the following gate.
+        l_s_16 = set(list(set(self.Rule.novel_reactions(self.Rule(), "{L1 S T R1}", "[A]<B>::{L'}<L>[S T]<R>{R'}:<C>[D]"))))
+        self.assertEqual(set(), l_s_16)
 
 
 if __name__ == '__main__':
