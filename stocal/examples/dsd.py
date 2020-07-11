@@ -466,32 +466,39 @@ class LeakageRule(stocal.TransitionRule):
 
     def strand_leak(self, k, l):
         for gate in re.finditer(re_gate, k):
+            print("GATE", gate)
             if re.search(re_short_double_th, gate.group(3)) is None:
                 re_strand = re.sub(r'\^', "\\^", check_in(gate.group(3)))
                 in_l = check_in(l)  # Sequence of domains within the strand l
                 rot_l = check_in(rotate(l))  # Sequence of domains within the rotated version of l.
                 leaked_u_s = "<" + check_in(gate.group(2)) + " " + check_in(gate.group(3)) + " " + check_in(gate.group(4)) + ">"
                 leaked_l_s = "{" + check_in(gate.group(1)) + " " + check_in(gate.group(3)) + " " + check_in(gate.group(5)) + "}"
-                if re.search(re_upper, l) is not None:
-                    for match in re.finditer(fr'{re_strand}', check_in(l)):
-                        new_sys = k[:gate.start(2)] + "<" + in_l[:match.start()] + ">" + gate.group(3) + "<" + \
-                                  in_l[match.end():] + ">" + k[gate.end(4):]
-                        yield self.Transition([k, l], [tidy(new_sys), tidy(leaked_u_s)], alpha)
-                    for match in re.finditer(fr'{re_strand}', rot_l):
-                        new_sys = k[:gate.start()] + "{" + rot_l[:match.start()] + "}" + k[gate.start(2):gate.end(4)] +\
-                                  "{" + rot_l[match.end():] + "}" + k[gate.end():]
-                        yield self.Transition([k, l], [tidy(new_sys), tidy(leaked_l_s)], alpha)
-                else:
-                    for match in re.finditer(fr'{re_strand}', check_in(l)):
-                        new_sys = k[:gate.start()] + "{" + in_l[:match.start()] + "}" + k[gate.start(2):gate.end(4)] + \
-                                  "{" + in_l[match.end():] + "}" + k[gate.end():]
-                        yield self.Transition([k, l], [tidy(new_sys), tidy(leaked_l_s)], alpha)
-                    for match in re.finditer(fr'{re_strand}', rot_l):
-                        new_sys = k[:gate.start(2)] + "<" + rot_l[:match.start()] + ">" + gate.group(3) + \
-                                       "<" + rot_l[match.end():] + ">" + k[gate.end(4):]
-                        yield self.Transition([k, l], [tidy(new_sys), tidy(leaked_u_s)], alpha)
-
-
+                upper_gate_join_1 = k[gate.start()-2:gate.start()]  # Used to check if current gate joins last gate via an upper strand.
+                upper_gate_join_2 = k[gate.end():gate.end()+2]  # Used to check if current gate joins next gate via an upper strand.
+                lower_gate_join_1 = k[gate.start() - 2:gate.start() - 1]  # Used to check if current gate joins last gate via a lower strand.
+                lower_gate_join_2 = k[gate.end() + 1:gate.end() + 2]  # Used to check if current gate joins next gate via a lower strand.
+                if re.search(re_upper, l) is not None:  # If the strand initiating the leak is an upper strand:
+                    if upper_gate_join_1 != "::" and upper_gate_join_2 != "::":  # Check gate isn't joined to others by upper strand.
+                        for match in re.finditer(fr'{re_strand}', check_in(l)):  # Yield suitable (upper) leaks.
+                            new_sys = k[:gate.start(2)] + "<" + in_l[:match.start()] + ">" + gate.group(3) + "<" + \
+                                      in_l[match.end():] + ">" + k[gate.end(4):]
+                            yield self.Transition([k, l], [tidy(new_sys), tidy(leaked_u_s)], alpha)
+                    if lower_gate_join_1 != ":" and lower_gate_join_2 != ":":  # Check gate isn't joined to others by lower strand.
+                        for match in re.finditer(fr'{re_strand}', rot_l):  # Rotate strand and then yield suitable matches.
+                            new_sys = k[:gate.start()] + "{" + rot_l[:match.start()] + "}" + k[gate.start(2):gate.end(4)] +\
+                                      "{" + rot_l[match.end():] + "}" + k[gate.end():]
+                            yield self.Transition([k, l], [tidy(new_sys), tidy(leaked_l_s)], alpha)
+                else:  # If the strand initiating the leak is a lower strand:
+                    if lower_gate_join_1 != ":" and lower_gate_join_2 != ":":  # Check gate isn't joined to others by lower strand.
+                        for match in re.finditer(fr'{re_strand}', check_in(l)):  # Yield suitable (lower) leaks.
+                            new_sys = k[:gate.start()] + "{" + in_l[:match.start()] + "}" + k[gate.start(2):gate.end(4)] + \
+                                "{" + in_l[match.end():] + "}" + k[gate.end():]
+                            yield self.Transition([k, l], [tidy(new_sys), tidy(leaked_l_s)], alpha)
+                    if upper_gate_join_1 != "::" and upper_gate_join_2 != "::":   # Check gate isn't joined to others by upper strand.
+                        for match in re.finditer(fr'{re_strand}', rot_l):  # Rotate strand and then yield suitable matches.
+                            new_sys = k[:gate.start(2)] + "<" + rot_l[:match.start()] + ">" + gate.group(3) + \
+                                "<" + rot_l[match.end():] + ">" + k[gate.end(4):]
+                            yield self.Transition([k, l], [tidy(new_sys), tidy(leaked_u_s)], alpha)
 
 
 process = stocal.Process(
@@ -524,16 +531,16 @@ if __name__ == '__main__':
     initial_state = {"[C D]<A>:{L'}<L>[S]<N^ R>{N^* R'}::[A B]":1}
     #{L'}<L>[S]<N^ R>:{N^* R'}[A B]
     #{L'}<L>[S]<N^ R>{N^* R'}
-    initial_state ={"{L'}<L>[S]<N^ R>:{N^* R'}[A B]":1}
-    initial_state ={"{Z A^*}<Y A^>[B]{C}::{D}<E^ D>[G]":1}
-    initial_state = {"[A]{B^*}::{L}<B^>[S]":1}
-    initial_state = {"{L'}<L>[S1]<S>:<L1>[S S2]<R>{R'}":1}
-    initial_state = {"[t^]{x y}::[x]:[y u^]":1}
-    initial_state = {"[t^]{x y}::{Z}[x]<r>:[y u^]":1}
-    initial_state = {"<A B^ C>":1, "[A B^ C]":1}
-    initial_state = {"<L1 S T R1>":1, "{L'}<L>[T S]<R>{R'}":1}
-    initial_state = {"{L1 S R1}":1, "{L'}<L>[S]<R>{R'}":1}
-
+    initial_state ={"{L'}<L>[S]<N^ R>:{N^* R'}[A B]": 1}
+    initial_state ={"{Z A^*}<Y A^>[B]{C}::{D}<E^ D>[G]": 1}
+    initial_state = {"[A]{B^*}::{L}<B^>[S]": 1}
+    initial_state = {"{L'}<L>[S1]<S>:<L1>[S S2]<R>{R'}": 1}
+    initial_state = {"[t^]{x y}::[x]:[y u^]": 1}
+    initial_state = {"[t^]{x y}::{Z}[x]<r>:[y u^]": 1}
+    initial_state = {"<A B^ C>": 1, "[A B^ C]": 1}
+    initial_state = {"<L1 S T R1>": 1, "{L'}<L>[T S]<R>{R'}": 1}
+    initial_state = {"{L1 S R1}": 1, "{L'}<L>[S]<R>{R'}": 1}
+    initial_state = {"<L1 S T R1>": 1, "[A]<B>:{L'}<L>[S T]<R>{R'}::<C>[D]": 1}
     # x = "A B^ C"
     # re_test = re.compile(fr'{x}')
     # x = re.sub(r'\^', "\\^", x)
