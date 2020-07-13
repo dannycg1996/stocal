@@ -95,6 +95,8 @@ re_format_3 = re.compile(
 re_format_4 = re.compile(
     f"({re_double.pattern}{re_upper.pattern}?{re_lower.pattern}:{re_upper.pattern}?{re_double.pattern})")
 
+re_double_start_leak = re.compile(r'\[((\w\^)([^<\[{]*?\w))\]')
+re_double_end_leak = re.compile(r'\[((\w[^<\[{]*?)(\w\^))\]')
 
 def check_in(seq):
     """Takes a sequence, and if it isn't None it returns the sequence with the first and last character missing (this will be used to remove
@@ -463,10 +465,11 @@ class LeakageRule(stocal.TransitionRule):
         if (gate_k is None and gate_l is not None) or (gate_l is None and gate_k is not None):
             yield from self.strand_leak(k, l)
             yield from self.strand_leak(l, k)
+            yield from self.toehold_leak(k, l)
+            yield from self.toehold_leak(l, k)
 
     def strand_leak(self, k, l):
         for gate in re.finditer(re_gate, k):
-            print("GATE", gate)
             if re.search(re_short_double_th, gate.group(3)) is None:
                 re_strand = re.sub(r'\^', "\\^", check_in(gate.group(3)))
                 in_l = check_in(l)  # Sequence of domains within the strand l
@@ -499,6 +502,22 @@ class LeakageRule(stocal.TransitionRule):
                             new_sys = k[:gate.start(2)] + "<" + rot_l[:match.start()] + ">" + gate.group(3) + \
                                 "<" + rot_l[match.end():] + ">" + k[gate.end(4):]
                             yield self.Transition([k, l], [tidy(new_sys), tidy(leaked_u_s)], alpha)
+
+    def toehold_leak(self, k, l):
+        for gate in re.finditer(re_gate, k):
+            in_l = check_in(l)  # Sequence of domains within the strand l
+            start_leak = re.search(re_double_start_leak, gate.group())
+            end_leak = re.search(re_double_end_leak, gate.group())
+            re_strand = re.sub(r'\^', "\\^", end_leak.group(2))
+            re_check_l_s_ineligible = "^" + re.sub(r'\^', "\\^", end_leak.group(3))
+            if re.search(re_upper, l) is not None:
+                if end_leak is not None:  # If the strand initiating the leak is an upper strand:
+                    for match in re.finditer(re_strand, check_in(l)):
+                        if re.search(re_check_l_s_ineligible, l[match.end():]) is None:
+                            leaked_u_s = "<" + check_in(gate.group(2)) + " " + end_leak.group(1) + " " + check_in(gate.group(4)) + ">"
+                            new_sys = k[:gate.start(2)] + "<" + in_l[:match.start()] + ">[" + end_leak.group(2) + "]<" + \
+                                in_l[match.end():] + ">{" + end_leak.group(3) + "* " + check_in(gate.group(5)) + "}" + k[gate.end():]
+                            yield self.Transition([k, l], [tidy(leaked_u_s), tidy(new_sys)], alpha)
 
 
 process = stocal.Process(
@@ -540,7 +559,7 @@ if __name__ == '__main__':
     initial_state = {"<A B^ C>": 1, "[A B^ C]": 1}
     initial_state = {"<L1 S T R1>": 1, "{L'}<L>[T S]<R>{R'}": 1}
     initial_state = {"{L1 S R1}": 1, "{L'}<L>[S]<R>{R'}": 1}
-    initial_state = {"<L1 S T R1>": 1, "[A]<B>:{L'}<L>[S T]<R>{R'}::<C>[D]": 1}
+    initial_state = {"<L1 S R1>": 1, "{L'}<L>[S N^]<R>{R'}": 1}
     # x = "A B^ C"
     # re_test = re.compile(fr'{x}')
     # x = re.sub(r'\^', "\\^", x)
