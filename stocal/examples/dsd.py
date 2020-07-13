@@ -476,13 +476,17 @@ class LeakageRule(stocal.TransitionRule):
                       mod_l[match.end():] + ">" + k[gate.end(4):]
             yield self.Transition([k, l], [tidy(new_sys), tidy(leaked_u_s)], alpha)
 
+    def lower_strand_leakage(self, k, l, mod_l, gate):
+        leaked_l_s = "{" + check_in(gate.group(1)) + " " + check_in(gate.group(3)) + " " + check_in(gate.group(5)) + "}"
+        re_strand = re.sub(r'\^', "\\^", check_in(gate.group(3)))
+        for match in re.finditer(fr'{re_strand}', mod_l): # Yield suitable (lower) leaks.
+            new_sys = k[:gate.start()] + "{" + mod_l[:match.start()] + "}" + k[gate.start(2):gate.end(4)] +\
+              "{" + mod_l[match.end():] + "}" + k[gate.end():]
+            yield self.Transition([k, l], [tidy(new_sys), tidy(leaked_l_s)], alpha)
+
     def strand_leak(self, k, l):
         for gate in re.finditer(re_gate, k):
             if re.search(re_short_double_th, gate.group(3)) is None:  # Checks that the d_s in the gate is not of the form [A^]
-                re_strand = re.sub(r'\^', "\\^", check_in(gate.group(3)))
-                in_l = check_in(l)  # Sequence of domains within the strand l
-                rot_l = check_in(rotate(l))  # Sequence of domains within the rotated version of l.
-                leaked_l_s = "{" + check_in(gate.group(1)) + " " + check_in(gate.group(3)) + " " + check_in(gate.group(5)) + "}"
                 upper_gate_join_1 = k[gate.start()-2:gate.start()]  # Used to check if current gate joins last gate via an upper strand.
                 upper_gate_join_2 = k[gate.end():gate.end()+2]  # Used to check if current gate joins next gate via an upper strand.
                 lower_gate_join_1 = k[gate.start() - 2:gate.start() - 1]  # Used to check if current gate joins last gate via a lower strand.
@@ -491,16 +495,10 @@ class LeakageRule(stocal.TransitionRule):
                     if upper_gate_join_1 != "::" and upper_gate_join_2 != "::":  # Check gate isn't joined to others by upper strand.
                         yield from self.upper_strand_leakage(k, l, check_in(l), gate)
                     if lower_gate_join_1 != ":" and lower_gate_join_2 != ":":  # Check gate isn't joined to others by lower strand.
-                        for match in re.finditer(fr'{re_strand}', rot_l):  # Rotate strand and then yield suitable matches.
-                            new_sys = k[:gate.start()] + "{" + rot_l[:match.start()] + "}" + k[gate.start(2):gate.end(4)] +\
-                                      "{" + rot_l[match.end():] + "}" + k[gate.end():]
-                            yield self.Transition([k, l], [tidy(new_sys), tidy(leaked_l_s)], alpha)
+                        yield from self.lower_strand_leakage(k, l, check_in(rotate(l)), gate)
                 else:  # If the strand initiating the leak is a lower strand:
                     if lower_gate_join_1 != ":" and lower_gate_join_2 != ":":  # Check gate isn't joined to others by lower strand.
-                        for match in re.finditer(fr'{re_strand}', check_in(l)):  # Yield suitable (lower) leaks.
-                            new_sys = k[:gate.start()] + "{" + in_l[:match.start()] + "}" + k[gate.start(2):gate.end(4)] + \
-                                "{" + in_l[match.end():] + "}" + k[gate.end():]
-                            yield self.Transition([k, l], [tidy(new_sys), tidy(leaked_l_s)], alpha)
+                        yield from self.lower_strand_leakage(k, l, check_in(l), gate)
                     if upper_gate_join_1 != "::" and upper_gate_join_2 != "::":   # Check gate isn't joined to others by upper strand.
                         yield from self.upper_strand_leakage(k, l, check_in(rotate(l)) , gate)
 
