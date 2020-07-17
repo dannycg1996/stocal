@@ -244,12 +244,12 @@ class BindingRule(stocal.TransitionRule):
         if (gate_k is None and gate_l is not None) or (gate_l is None and gate_k is not None):
             yield from self.strand_to_gate_binding(k, l, re_upper_lab, re_lower_lab)
             yield from self.strand_to_gate_binding(l, k, re_upper_lab, re_lower_lab)
-            yield from self.strand_to_gate_binding(rotate(k), l, re_upper_lab, re_lower_lab)
-            yield from self.strand_to_gate_binding(rotate(l), k, re_upper_lab, re_lower_lab)
+            yield from self.strand_to_gate_binding(k, rotate(l), re_upper_lab, re_lower_lab)
+            yield from self.strand_to_gate_binding(l, rotate(k), re_upper_lab, re_lower_lab)
             yield from self.strand_to_gate_binding(k, l, re_lower_lab, re_upper_lab)
             yield from self.strand_to_gate_binding(l, k, re_lower_lab, re_upper_lab)
-            yield from self.strand_to_gate_binding(rotate(k), l, re_lower_lab, re_upper_lab)
-            yield from self.strand_to_gate_binding(rotate(l), k, re_lower_lab, re_upper_lab)
+            yield from self.strand_to_gate_binding(k, rotate(l), re_lower_lab, re_upper_lab)
+            yield from self.strand_to_gate_binding(l, rotate(k), re_lower_lab, re_upper_lab)
         elif gate_k is None or gate_l is None:
             yield from self.strand_to_strand_binding(k, l, re_upper_lab, re_lower_lab)
             yield from self.strand_to_strand_binding(k, l, re_lower_lab, re_upper_lab)
