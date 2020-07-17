@@ -98,6 +98,7 @@ re_format_4 = re.compile(
 re_double_start_leak = re.compile(r'\[((\w\^)([^<\[{]*?\w))\]')
 re_double_end_leak = re.compile(r'\[((\w[^<\[{]*?)(\w\^))\]')
 
+
 def check_in(seq):
     """Takes a sequence, and if it isn't None it returns the sequence with the first and last character missing (this will be used to remove
      brackets around a group and make code more readable). If seq == None, return a blank string '' """
@@ -237,16 +238,23 @@ class BindingRule(stocal.TransitionRule):
     Transition = stocal.MassAction
 
     def novel_reactions(self, k, l):
+        # TODO: Test with rotated strands.
         gate_k = re.search(re_gate, k)
         gate_l = re.search(re_gate, l)
         if (gate_k is None and gate_l is not None) or (gate_l is None and gate_k is not None):
             yield from self.strand_to_gate_binding(k, l, re_upper_lab, re_lower_lab)
             yield from self.strand_to_gate_binding(l, k, re_upper_lab, re_lower_lab)
+            yield from self.strand_to_gate_binding(rotate(k), l, re_upper_lab, re_lower_lab)
+            yield from self.strand_to_gate_binding(rotate(l), k, re_upper_lab, re_lower_lab)
             yield from self.strand_to_gate_binding(k, l, re_lower_lab, re_upper_lab)
             yield from self.strand_to_gate_binding(l, k, re_lower_lab, re_upper_lab)
+            yield from self.strand_to_gate_binding(rotate(k), l, re_lower_lab, re_upper_lab)
+            yield from self.strand_to_gate_binding(rotate(l), k, re_lower_lab, re_upper_lab)
         elif gate_k is None or gate_l is None:
             yield from self.strand_to_strand_binding(k, l, re_upper_lab, re_lower_lab)
             yield from self.strand_to_strand_binding(k, l, re_lower_lab, re_upper_lab)
+            yield from self.strand_to_strand_binding(rotate(k), l, re_upper_lab, re_lower_lab)
+            yield from self.strand_to_strand_binding(rotate(k), l, re_lower_lab, re_upper_lab)
 
     def strand_to_gate_binding(self, k, l, regex_1, regex_2):
         for gate in re.finditer(re_gate, k):
@@ -465,8 +473,8 @@ class LeakageRule(stocal.TransitionRule):
         if (gate_k is None and gate_l is not None) or (gate_l is None and gate_k is not None):
             yield from self.strand_leak(k, l)
             yield from self.strand_leak(l, k)
-            # yield from self.toehold_leak(k, l)
-            # yield from self.toehold_leak(l, k)
+            yield from self.toehold_leak(k, l)
+            yield from self.toehold_leak(l, k)
 
     def upper_strand_leakage(self, k, l, mod_l, gate):
         leaked_u_s = "<" + check_in(gate.group(2)) + " " + check_in(gate.group(3)) + " " + check_in(gate.group(4)) + ">"
@@ -501,7 +509,6 @@ class LeakageRule(stocal.TransitionRule):
                         yield from self.lower_strand_leakage(k, l, check_in(l), gate)
                     if upper_gate_join_1 != "::" and upper_gate_join_2 != "::":   # Check gate isn't joined to others by upper strand.
                         yield from self.upper_strand_leakage(k, l, check_in(rotate(l)) , gate)
-
 
     def toehold_leak(self, k, l):
         for gate in re.finditer(re_gate, k):
