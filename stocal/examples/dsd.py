@@ -485,8 +485,10 @@ class LeakageRule(stocal.TransitionRule):
             yield self.Transition([k, l], [tidy(new_sys), tidy(leaked_u_s)], alpha)
 
     def lower_strand_leakage(self, k, l, mod_l, gate):
-        leaked_l_s = "{" + check_in(gate.group(1)) + " " + check_in(gate.group(3)) + " " + check_in(gate.group(5)) + "}"
         re_strand = re.sub(r'\^', "\\^", check_in(gate.group(3)))
+        re_strand = re.sub(r'(?<=\S)\s', "\* ", re_strand) + "\*"
+        lower_from_d_s = re.sub(r'(?<=\S)\s', "* ", check_in(gate.group(3))) + "*"
+        leaked_l_s = "{" + check_in(gate.group(1)) + " " + lower_from_d_s + " " + check_in(gate.group(5)) + "}"
         for match in re.finditer(fr'{re_strand}', mod_l): # Yield suitable (lower) leaks.
             new_sys = k[:gate.start()] + "{" + mod_l[:match.start()] + "}" + k[gate.start(2):gate.end(4)] +\
               "{" + mod_l[match.end():] + "}" + k[gate.end():]
