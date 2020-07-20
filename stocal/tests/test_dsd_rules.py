@@ -471,33 +471,33 @@ class TestDisplacementRule(TestTransitionRule):
         self.assertEqual(set(), set.difference(r_d_26, exp_res_26))
 
 
-class TestLeakageRule(unittest.TestCase):
-    from stocal.examples.dsd import LeakageRule
-    Rule = LeakageRule
+class TestStrandLeakageRule(unittest.TestCase):
+    from stocal.examples.dsd import StrandLeakageRule
+    Rule = StrandLeakageRule
 
     def test_lakin_l_s_example(self):
-        # Test that the basic LS example from the Lakin paper can be replicated with the Leakage Rule. Note that the invader strand
-        # in this example can bind as either an upper strand or a lower strand. This explains the two pairs of answers.
+        # Test that the basic LS example from the Lakin paper can be replicated with the Leakage Rule.
         l_s_1 = set(list(set(self.Rule.novel_reactions(self.Rule(), "<L1 S R1>", "{L'}<L>[S]<R>{R'}")))[0].products.keys())
-        exp_res_1 = {"<L S R>", "{L'}<L1>[S]<R1>{R'}", "{L' S R'}", "{R1}<L>[S]<R>{L1}"}
+        exp_res_1 = {"<L S R>", "{L'}<L1>[S]<R1>{R'}"}
         self.assertEqual(set(), set.difference(l_s_1, exp_res_1))
 
     def test_lakin_l_s_example_rotated(self):
-        # Test the (rotated) basic LS example from the Lakin paper can be reproduced with the Leakage Rule. Note that the invader strand
-        # in this example can bind as either an upper strand or a lower strand. This explains the two pairs of answers.
-        l_s_2 = set(list(set(self.Rule.novel_reactions(self.Rule(), "{L1 S R1}", "{L'}<L>[S]<R>{R'}")))[0].products.keys())
-        exp_res_2 = {"<L S R>", "{L1}<L>[S]<R>{R1}", "{L' S R'}", "{L'}<R1>[S]<L1>{R'}"}
+        # Test the (rotated) basic LS example from the Lakin paper can be reproduced with the Leakage Rule.
+        l_s_2 = set(list(set(self.Rule.novel_reactions(self.Rule(), "{L1 S* R1}", "{L'}<L>[S]<R>{R'}")))[0].products.keys())
+        print("l_s", l_s_2)
+        exp_res_2 = {"{L' S* R'}", "{L1}<L>[S]<R>{R1}"}
+        print("exp", exp_res_2)
         self.assertEqual(set(), set.difference(l_s_2, exp_res_2))
 
-    def test_that_leakage_does_not_apply_to_short_double_toeholds(self):
+    def test_that_strand_leakage_does_not_apply_to_short_double_toeholds(self):
         # Test that the leakage rule does not yield any results when the short double strand has form [N^].
-        l_s_3 = set(list(set(self.Rule.novel_reactions(self.Rule(), "{L1 S R1}", "{L'}<L>[S^]<R>{R'}"))))
+        l_s_3 = set(list(set(self.Rule.novel_reactions(self.Rule(), "{L1 S* R1}", "{L'}<L>[S^]<R>{R'}"))))
         self.assertEqual(set(), l_s_3)
 
-    def test_that_invader_strand_cannot_yield_a_leak_when_the_sequences_do_not_match(self):
+    def test_that_invader_strand_cannot_yield_a_strand_leak_when_the_sequences_do_not_match(self):
         # Test that when the invader sequence of domains does not match the sequence of domains within the d_s of the
         # other input, no leakages are yielded
-        l_s_4 = set(list(set(self.Rule.novel_reactions(self.Rule(), "{L1 A B^ C R1}", "{L'}<L>[A B C]<R>{R'}"))))
+        l_s_4 = set(list(set(self.Rule.novel_reactions(self.Rule(), "{L1 A* B^* C* R1}", "{L'}<L>[A B C]<R>{R'}"))))
         self.assertEqual(set(), l_s_4)
 
     def test_leakage_rule_yields_correctly_when_upper_strand_can_only_invade_as_upper_strand(self):
@@ -508,16 +508,16 @@ class TestLeakageRule(unittest.TestCase):
         self.assertEqual(set(), set.difference(l_s_5, exp_res_5))
 
     def test_leakage_rule_yields_correctly_when_upper_strand_can_only_invade_as_lower_strand(self):
-        # Test the LS rule when the invader strand is an upper strand which can only cause a leak if it rotates into a lower strand.
-        l_s_6 = set(list(set(self.Rule.novel_reactions(self.Rule(), "<L1 T^ S R1>", "{L'}<L>[S T^]<R>{R'}")))[0].products.keys())
-        exp_res_6 = {"{L' S T^ R'}", "{R1}<L>[S T^]<R>{L1}"}
+    # Test the LS rule when the invader strand is an upper strand which can only cause a leak if it rotates into a lower strand.
+        l_s_6 = set(list(set(self.Rule.novel_reactions(self.Rule(), "<L1 T^* S* R1>", "{L'}<L>[S T^]<R>{R'}")))[0].products.keys())
+        exp_res_6 = {"{L' S* T^* R'}", "{R1}<L>[S T^]<R>{L1}"}
         self.assertEqual(set(), set.difference(l_s_6, exp_res_6))
 
     def test_leakage_rule_yields_correctly_when_lower_strand_can_only_invade_as_lower_strand(self):
         # Test the LS rule when the invader strand is a lower strand which can only cause a leak with one rotation i.e. if the
         # invader rotates into an upper strand, a leakage will not occur (on the upper strand).
-        l_s_7 = set(list(set(self.Rule.novel_reactions(self.Rule(), "{L1 S T^ R1}", "{L'}<L>[S T^]<R>{R'}")))[0].products.keys())
-        exp_res_7 = {"{L' S T^ R'}", "{L1}<L>[S T^]<R>{R1}"}
+        l_s_7 = set(list(set(self.Rule.novel_reactions(self.Rule(), "{L1 S* T^* R1}", "{L'}<L>[S T^]<R>{R'}")))[0].products.keys())
+        exp_res_7 = {"{L' S* T^* R'}", "{L1}<L>[S T^]<R>{R1}"}
         self.assertEqual(set(), set.difference(l_s_7, exp_res_7))
 
     def test_leakage_rule_yields_correctly_when_lower_strand_can_only_invade_as_upper_strand(self):
@@ -530,24 +530,24 @@ class TestLeakageRule(unittest.TestCase):
         # Test the LS rule when the invader strand is an upper strand which can only cause a leak with one rotation i.e. if the
         # invader rotates into a lower strand, a leakage will not occur (on the lower strand). Variant of l_s_5 with long sequences of domains.
         l_s_9 = set(list(set(self.Rule.novel_reactions(self.Rule(), "<L1 LA S T^ RA R1>",
-                                                       "{L' L2}<L LB>[S T^]<RB R>{R2 R'}")))[0].products.keys())
+                    "{L' L2}<L LB>[S T^]<RB R>{R2 R'}")))[0].products.keys())
         exp_res_9 = {"<L LB S T^ RB R>", "{L' L2}<L1 LA>[S T^]<RA R1>{R2 R'}"}
         self.assertEqual(set(), set.difference(l_s_9, exp_res_9))
 
     def test_leakage_rule_yields_correctly_when_upper_strand_can_only_invade_as_lower_strand_long(self):
         # Test the LS rule when the invader strand is an upper strand which can only cause a leak if it rotates into a lower strand.
         # Variant of l_s_6 with longer sequences of domains.
-        l_s_10 = set(list(set(self.Rule.novel_reactions(self.Rule(), "<L1 LA T^ S RA R1>",
+        l_s_10 = set(list(set(self.Rule.novel_reactions(self.Rule(), "<L1 LA T^* S* RA R1>",
                                                         "{L' L2}<L LB>[S T^]<RB R>{R2 R'}")))[0].products.keys())
-        exp_res_10 = {"{L' L2 S T^ R2 R'}", "{R1 RA}<L LB>[S T^]<RB R>{LA L1}"}
+        exp_res_10 = {"{L' L2 S* T^* R2 R'}", "{R1 RA}<L LB>[S T^]<RB R>{LA L1}"}
         self.assertEqual(set(), set.difference(l_s_10, exp_res_10))
 
     def test_leakage_rule_yields_correctly_when_lower_strand_can_only_invade_as_lower_strand_long(self):
         # Test the LS rule when the invader is a lower strand which can only cause a leak with one rotation i.e. if the invader
         # rotates into an upper strand, a leakage will not occur (on the upper strand). Variant of l_s_7 with longer sequences of domains.
-        l_s_11 = set(list(set(self.Rule.novel_reactions(self.Rule(), "{L1 LA S T^ RA R1}",
+        l_s_11 = set(list(set(self.Rule.novel_reactions(self.Rule(), "{L1 LA S* T^* RA R1}",
                                                         "{L' L2}<L LB>[S T^]<RB R>{R2 R'}")))[0].products.keys())
-        exp_res_11 = {"{L' L2 S T^ R2 R'}", "{L1 LA}<L LB>[S T^]<RB R>{RA R1}"}
+        exp_res_11 = {"{L' L2 S* T^* R2 R'}", "{L1 LA}<L LB>[S T^]<RB R>{RA R1}"}
         self.assertEqual(set(), set.difference(l_s_11, exp_res_11))
 
     def test_leakage_rule_yields_correctly_when_lower_strand_can_only_invade_as_upper_strand_long(self):
@@ -579,5 +579,59 @@ class TestLeakageRule(unittest.TestCase):
         self.assertEqual(set(), l_s_16)
 
 
+class TestToeholdLeakageRule(unittest.TestCase):
+    from stocal.examples.dsd import ToeholdLeakageRule
+    Rule = ToeholdLeakageRule
+
+    def test_lakin_l_t_example(self):
+        # Test that the basic LT example from the Lakin paper can be replicated with the Leakage Rule.
+        l_t_1 = set(list(set(self.Rule.novel_reactions(self.Rule(), "<L1 S R1>", "{L'}<L>[S N^]<R>{R'}")))[0].products.keys())
+        exp_res_1 = {"<L S N^ R>", "{L'}<L1>[S]<R1>{N^* R'}"}
+        self.assertEqual(set(), set.difference(l_t_1, exp_res_1))
+
+    def test_extended_lakin_l_t_example(self):
+        # Test a different version of the LT example from the Lakin paper, with more domains on the double strand.
+        l_t_2 = set(list(set(self.Rule.novel_reactions(self.Rule(), "<L1 S K^ R1>", "{L'}<L>[S K^ N^]<R>{R'}")))[0].products.keys())
+        exp_res_2 = {"<L S K^ N^ R>", "{L'}<L1>[S K^]<R1>{N^* R'}"}
+        self.assertEqual(set(), set.difference(l_t_2, exp_res_2))
+
+    def test_lower_strand_version_of_lakin_l_t_example(self):
+        # Test that the basic (rotated) LT example from the Lakin paper can be replicated with the Leakage Rule.
+        l_t_3 = set(list(set(self.Rule.novel_reactions(self.Rule(), "{L1 S* R1}", "{L'}<L>[S N^]<R>{R'}")))[0].products.keys())
+        exp_res_3 = {"{L' S* N^* R'}", "{L1}<L>[S]<N^ R>{R1}"}
+        self.assertEqual(set(), set.difference(l_t_3, exp_res_3))
+
+    def test_extended_lower_strand_version_of_lakin_l_t_example(self):
+        # Test that the basic (rotated) LT example from the Lakin paper can be replicated with the Leakage Rule.
+        l_t_3 = set(list(set(self.Rule.novel_reactions(self.Rule(), "{L1 S* B^* R1}", "{L'}<L>[S B^ N^]<R>{R'}")))[0].products.keys())
+        exp_res_3 = {"{L' S* B^* N^* R'}", "{L1}<L>[S B^]<N^ R>{R1}"}
+        self.assertEqual(set(), set.difference(l_t_3, exp_res_3))
+
+    def test_lakin_l_s_example_does_not_yield_any_results_from_the_l_t_rule(self):
+        # Test that the LT rule is not applied to the basic LS example from the Lakin paper.
+        l_t_1 = set(list(set(self.Rule.novel_reactions(self.Rule(), "<L1 S R1>", "{L'}<L>[S]<R>{R'}"))))
+        self.assertEqual(set(), set.difference(l_t_1, set()))
+
+    def test_that_a_rotated_lakin_l_s_example_does_not_yield_any_results_from_the_l_t_rule(self):
+        # Test that the LT rule is not applied to the rotated (lower strand version) of the LS example from the Lakin paper.
+        l_t_2 = set(list(set(self.Rule.novel_reactions(self.Rule(), "{L1 S R1}", "{L'}<L>[S]<R>{R'}"))))
+        self.assertEqual(set(), set.difference(l_t_2, set()))
+
+    def test_that_the_l_t_rule_does_not_apply_to_short_double_toeholds(self):
+        # Test that the leakage rule does not yield any results when the short double strand has form [N^].
+        l_t_3 = set(list(set(self.Rule.novel_reactions(self.Rule(), "{L1 S R1}", "{L'}<L>[S^]<R>{R'}"))))
+        self.assertEqual(set(), l_t_3)
+
+    def test_that_invader_strand_cannot_yield_a_toehold_leak_when_the_sequences_do_not_match(self):
+        # Test that when the invader sequence of domains does not match the sequence of domains within the d_s of the
+        # other input, no leakages are yielded
+        l_t_4 = set(list(set(self.Rule.novel_reactions(self.Rule(), "{L1 A B^ C^ R1}", "{L'}<L>[A B C^]<R>{R'}"))))
+        self.assertEqual(set(), l_t_4)
+
+
+#<L1 S R1> |
+# {L’}<L>[S N^]<R>{R’}
+# <L S N^ R> |
+# {L’}<L1>[S]<R1>{N^* R’}
 if __name__ == '__main__':
     unittest.main()
