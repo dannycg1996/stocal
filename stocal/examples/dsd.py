@@ -537,6 +537,18 @@ class ToeholdLeakageRule(stocal.TransitionRule):
             yield from self.toehold_leak(k, l)
             yield from self.toehold_leak(l, k)
 
+    def lower_toehold_leakage_at_end(self, k, l, end_leak, mod_l, gate):
+        re_check_not_l_s = re.sub(r'\^', "\\^", end_leak.group(3))
+        re_end_leak = convert_upper_to_lower(re.sub(r'\^', "\\^", end_leak.group(2)))
+        re_leak = re.sub(r'\*', "\\*", re_end_leak)
+        for match in re.finditer(re_leak, mod_l):
+            if re.search(re_check_not_l_s, l[match.end():]) is None:
+                leaked_l_s = "{" + check_in(gate.group(1)) + " " + convert_upper_to_lower(end_leak.group(1)) +\
+                                 " " + check_in(gate.group(5)) + "}"
+                new_sys = k[:gate.start()] + "{" + mod_l[:match.start()] + "}" + gate.group(2) + "[" + end_leak.group(2) + "]<" + \
+                        end_leak.group(3) + " " + check_in(gate.group(4)) + ">{" + mod_l[match.end():] + "}" + k[gate.end():]
+                yield self.Transition([k, l], [tidy(leaked_l_s), tidy(new_sys)], alpha)
+
     def upper_toehold_leakage_at_end(self, k, l, end_leak, mod_l, gate):
         re_check_not_l_s = re.sub(r'\^', "\\^", end_leak.group(3))
         re_end_leak = re.sub(r'\^', "\\^", end_leak.group(2))
@@ -569,7 +581,6 @@ class ToeholdLeakageRule(stocal.TransitionRule):
                         # if lower_gate_join_1 != ":" and lower_gate_join_2 != ":":
                             # yield from self.upper_toehold_leakage_at_end(k, l, end_leak, check_in(rotate(l)), gate)
             else:
-                print("ERE 2")
                 if lower_gate_join_1 != ":" and lower_gate_join_2 != ":": # Check gate isn't joined to others by upper strand.
                     if start_leak is not None:
                         re_check_not_l_s = re.sub(r'\^', "\\^", start_leak.group(2)) + "$"
@@ -578,19 +589,8 @@ class ToeholdLeakageRule(stocal.TransitionRule):
                             if re.search(re_check_not_l_s, in_l[:match.start()]) is None:
                                 print("HELLOOOOO")
                     if end_leak is not None:  # If the strand initiating the leak is an upper strand:
-                        print("Lower end leak found")
-                        re_check_not_l_s = re.sub(r'\^', "\\^", end_leak.group(3))
-                        re_end_leak = convert_upper_to_lower(re.sub(r'\^', "\\^", end_leak.group(2)))
-                        re_leak = re.sub(r'\*', "\\*", re_end_leak)
-                        for match in re.finditer(re_leak, in_l):
-                            print("Match", l[match.end():])
-                            if re.search(re_check_not_l_s, l[match.end():]) is None:
-                                print("test", end_leak.group(3))
-                                leaked_l_s = "{" + check_in(gate.group(1)) + " " + convert_upper_to_lower(end_leak.group(1)) +\
-                                             " " + check_in(gate.group(5)) + "}"
-                                new_sys = k[:gate.start()] + "{" + in_l[:match.start()] + "}" + gate.group(2) + "[" + end_leak.group(2) + "]<" + \
-                                    end_leak.group(3) + " " + check_in(gate.group(4)) + ">{" + in_l[match.end():] + "}" + k[gate.end():]
-                                yield self.Transition([k, l], [tidy(leaked_l_s), tidy(new_sys)], alpha)
+                        yield from self.lower_toehold_leakage_at_end(k, l, end_leak, check_in(l), gate)
+
 
 process = stocal.Process(
     rules=[StrandLeakageRule()]
