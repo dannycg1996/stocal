@@ -566,17 +566,8 @@ class ToeholdLeakageRule(stocal.TransitionRule):
                                 print("HELLOOOOO")
                     if end_leak is not None:  # If the strand initiating the leak is an upper strand:
                         yield from self.upper_toehold_leakage_at_end(k, l, end_leak, check_in(l), gate)
-
-                            # def upper_toehold_leakage_at_end(self, k, l, end_leak, mod_l, gate):
-
-                        # re_check_not_l_s = re.sub(r'\^', "\\^", end_leak.group(3))
-                        # re_end_leak = re.sub(r'\^', "\\^", end_leak.group(2))
-                        # for match in re.finditer(re_end_leak, in_l):
-                        #     if re.search(re_check_not_l_s, l[match.end():]) is None:
-                        #         leaked_u_s = "<" + check_in(gate.group(2)) + " " + end_leak.group(1) + " " + check_in(gate.group(4)) + ">"
-                        #         new_sys = k[:gate.start(2)] + "<" + in_l[:match.start()] + ">[" + end_leak.group(2) + "]<" + \
-                        #             in_l[match.end():] + ">{" + end_leak.group(3) + "* " + check_in(gate.group(5)) + "}" + k[gate.end():]
-                        #         yield self.Transition([k, l], [tidy(leaked_u_s), tidy(new_sys)], alpha)
+                        # if lower_gate_join_1 != ":" and lower_gate_join_2 != ":":
+                            # yield from self.upper_toehold_leakage_at_end(k, l, end_leak, check_in(rotate(l)), gate)
             else:
                 print("ERE 2")
                 if lower_gate_join_1 != ":" and lower_gate_join_2 != ":": # Check gate isn't joined to others by upper strand.
