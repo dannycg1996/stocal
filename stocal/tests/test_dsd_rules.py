@@ -12,13 +12,13 @@ class TestBindingRule(unittest.TestCase):
         r_b_1 = list(list(set(self.Rule.novel_reactions(self.Rule(), "{L' N^* R'}", "<L N^ R>")))[0].products.keys())[0]
         self.assertEqual(r_b_1, "{L'}<L>[N^]<R>{R'}")
 
-    def test_lakin_r_b_example_different_order(self):
+    def test_lakin_r_b_example_diff_order(self):
         # Test that the basic RB example from the Lakin paper can be replicated with the Binding Rule regardless of input order.
         r_b_2 = list(list(set(self.Rule.novel_reactions(self.Rule(), "<L N^ R>", "{L' N^* R'}")))[0].products.keys())[0]
         self.assertEqual(r_b_2, "{L'}<L>[N^]<R>{R'}")
 
-    def test_case_where_two_strands_can_bind_in_multiple_spots(self):
-        # r_b_3 tests that when appropriate, the Binding Rule can yield multiple different bindings from the same inputs.
+    def test_systems_which_can_bind_in_multiple_spots(self):
+        # Tests that when possible, the Binding Rule yields multiple different bindings from the same inputs.
         r_b_3 = set(list(set(self.Rule.novel_reactions(self.Rule(), "{S' N^* L' R'}", "<L N^ M N^>")))[0].products.keys())
         exp_res_3 = {"{S'}<L N^ M>[N^]{L' R'}", "{S'}<L>[N^]<M N^>{L' R'}"}
         self.assertEqual(set(), set.difference(r_b_3, exp_res_3))
@@ -48,12 +48,12 @@ class TestBindingRule(unittest.TestCase):
         r_b_8 = list(list(set(self.Rule.novel_reactions(self.Rule(), "{N^*}", "<N^>")))[0].products.keys())[0]
         self.assertEqual(r_b_8, "[N^]")
 
-    def test_lakin_fig_4a_strand_to_gate_binding_example(self):
+    def test_lakin_fig_4a_example(self):
         # Test an example from Figure 4 of the Lakin paper
         r_b_9 = list(list(set(self.Rule.novel_reactions(self.Rule(), "<t^ x y>", "{t^*}[x]:[y u^]")))[0].products.keys())[0]
         self.assertEqual(r_b_9, "[t^]<x y>:[x]:[y u^]")
 
-    def test_lakin_r_p_strand_to_gate_binding_example(self):
+    def test_lakin_r_p_example(self):
         # Test that the basic RP example from the Lakin paper yields the correct result.
         r_b_10 = list(list(set(self.Rule.novel_reactions(self.Rule(), "<L1 N^ S R1>", "{L' N^*}<L>[S R2]<R>{R'}")))[0].products.keys())[0]
         self.assertEqual(r_b_10, "{L'}<L1>[N^]<S R1>:<L>[S R2]<R>{R'}")
