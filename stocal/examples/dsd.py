@@ -31,7 +31,6 @@ import stocal
 import re
 import math
 
-alpha = 1.e-10
 domains = {"A": 4, "D" : 3, "A": 4}
 
 re_double = re.compile(r'(\[[^<{\[\]}>]*?\])')  # Matches on any double strand (includes brackets).
@@ -101,6 +100,7 @@ re_double_end_leak = re.compile(r'\[((\w[^<\[{]*?)\s(\w\^))\]')
 
 unbinding_rate = 0.1126 # Rate parameter for the unbinding rule
 covering_rate = 699 # Rate parameter for the covering rule
+leak_rate = 0.001 #Rate parameter for the two leakage rules
 
 
 def check_in(seq):
@@ -390,7 +390,7 @@ class CoveringRule(stocal.TransitionRule):
                 updated_sys = k[:match.start()-2] + " " + match.group(6) + "^]{" + check_out(match.group(7)) + "}::" + \
                     check_out(match.group(8)) + "<" + check_out(match.group(10)) + ">" + k[match.end():]
             print("updated gate", tidy(updated_sys))
-            yield self.Transition([k], [tidy(updated_sys)], alpha)
+            yield self.Transition([k], [tidy(updated_sys)], covering_rate)
         for match in re.finditer(re_pre_cover, k):  # Match on {}<> sequences where Covering can be applied.
             updated_sys = k[:match.start()] + "{" + check_out(match.group(1)) + "}<" + check_out(match.group(3)) + ">[" + \
                 match.group(2) + "^ " + k[match.end()+1:]
@@ -520,20 +520,18 @@ class StrandLeakageRule(stocal.TransitionRule):
             new_sys = k[:gate.start(2)] + "<" + mod_l[:match.start()] + ">" + gate.group(3) + "<" + \
                       mod_l[match.end():] + ">" + k[gate.end(4):]
             print("route 1")
-            yield self.Transition([k, l], [tidy(new_sys), tidy(leaked_u_s)], alpha)
+            yield self.Transition([k, l], [tidy(new_sys), tidy(leaked_u_s)], leak_rate)
 
     def lower_strand_leakage(self, k, l, mod_l, gate):
         re_strand = re.sub(r'\^', "\\^", check_in(gate.group(3)))
         re_strand = re.sub(r'(?<=\S)\s', "\* ", re_strand) + "\*"
-        # lower_from_d_s = convert_upper_to_lower(check_in(gate.group(3)))
-        # lower_from_d_s = re.sub(r'(?<=\S)\s', "* ", check_in(gate.group(3))) + "*"
         leaked_l_s = "{" + check_in(gate.group(1)) + " " + convert_upper_to_lower(check_in(gate.group(3))) + \
                      " " + check_in(gate.group(5)) + "}"
         for match in re.finditer(fr'{re_strand}', mod_l): # Yield suitable (lower) leaks.
             new_sys = k[:gate.start()] + "{" + mod_l[:match.start()] + "}" + k[gate.start(2):gate.end(4)] +\
               "{" + mod_l[match.end():] + "}" + k[gate.end():]
             print("route 2")
-            yield self.Transition([k, l], [tidy(new_sys), tidy(leaked_l_s)], alpha)
+            yield self.Transition([k, l], [tidy(new_sys), tidy(leaked_l_s)], leak_rate)
 
     def strand_leak(self, k, l):
         for gate in re.finditer(re_gate, k):
@@ -576,7 +574,7 @@ class ToeholdLeakageRule(stocal.TransitionRule):
                                  " " + check_in(gate.group(5)) + "}"
                 new_sys = k[:gate.start()] + "{" + mod_l[:match.start()] + "}" + gate.group(2) + "[" + end_leak.group(2) + "]<" + \
                         end_leak.group(3) + " " + check_in(gate.group(4)) + ">{" + mod_l[match.end():] + "}" + k[gate.end():]
-                yield self.Transition([k, l], [tidy(leaked_l_s), tidy(new_sys)], alpha)
+                yield self.Transition([k, l], [tidy(leaked_l_s), tidy(new_sys)], leak_rate)
 
     def upper_toehold_leakage_at_end(self, k, l, end_leak, mod_l, gate):
         re_check_not_l_s = "^" + re.sub(r'\^', "\\^", end_leak.group(3))
@@ -587,13 +585,12 @@ class ToeholdLeakageRule(stocal.TransitionRule):
                 leaked_u_s = "<" + check_in(gate.group(2)) + " " + end_leak.group(1) + " " + check_in(gate.group(4)) + ">"
                 new_sys = k[:gate.start(2)] + "<" + mod_l[:match.start()] + ">[" + end_leak.group(2) + "]<" + \
                     mod_l[match.end():] + ">{" + end_leak.group(3) + "* " + check_in(gate.group(5)) + "}" + k[gate.end():]
-                yield self.Transition([k, l], [tidy(leaked_u_s), tidy(new_sys)], alpha)
+                yield self.Transition([k, l], [tidy(leaked_u_s), tidy(new_sys)], leak_rate)
 
     def lower_toehold_leakage_at_start(self, k, l, start_leak, mod_l, gate):
         re_check_not_l_s = re.sub(r'\^', "\\^", start_leak.group(2)) + "$"
         re_start_leak = convert_upper_to_lower(re.sub(r'\^', "\\^", start_leak.group(3)))
         re_leak = re.sub(r'\*', "\\*", re_start_leak)
-
         for match in re.finditer(re_leak, mod_l):
             if re.search(re_check_not_l_s, l[match.end():]) is None:
                 leaked_l_s = "{" + check_in(gate.group(1)) + " " + convert_upper_to_lower(start_leak.group(1)) +\
@@ -601,7 +598,7 @@ class ToeholdLeakageRule(stocal.TransitionRule):
                 new_sys = k[:gate.start()] + "{" + mod_l[:match.start()] + "}<" + check_in(gate.group(2)) + " " + \
                           start_leak.group(2) + ">[" + start_leak.group(3) + "]<" + check_in(gate.group(4)) + ">" + \
                           "{" + mod_l[match.end():] + "}" + k[gate.end():]
-                yield self.Transition([k, l], [tidy(leaked_l_s), tidy(new_sys)], alpha)
+                yield self.Transition([k, l], [tidy(leaked_l_s), tidy(new_sys)], leak_rate)
 
     def upper_toehold_leakage_at_start(self, k, l, start_leak, mod_l, gate):
         re_check_not_l_s = re.sub(r'\^', "\\^", start_leak.group(2)) + "$"
@@ -614,7 +611,7 @@ class ToeholdLeakageRule(stocal.TransitionRule):
                 leaked_u_s = "<" + check_in(gate.group(2)) + " " + start_leak.group(1) + " " + check_in(gate.group(4)) + ">"
                 new_sys = k[:gate.start()] + "{" + check_in(gate.group(1)) + " " + start_leak.group(2) + "*}<" +\
                           mod_l[:match.start()] + ">[" + start_leak.group(3) + "]<" + mod_l[match.end():] + ">" + k[gate.end(4):]
-                yield self.Transition([k, l], [tidy(leaked_u_s), tidy(new_sys)], alpha)
+                yield self.Transition([k, l], [tidy(leaked_u_s), tidy(new_sys)], leak_rate)
 
     def toehold_leak(self, k, l):
         for gate in re.finditer(re_gate, k):
