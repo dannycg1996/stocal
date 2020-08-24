@@ -29,8 +29,10 @@ amount of time.
 """
 import stocal
 import re
+import math
 
 alpha = 1.e-10
+domains = {"A": 4, "D" : 3, "A": 4}
 
 re_double = re.compile(r'(\[[^<{\[\]}>]*?\])')  # Matches on any double strand (includes brackets).
 re_upper = re.compile(r'(<[^<\[{]*?>)')  # Matches on any upper strand (includes the brackets).
@@ -97,6 +99,7 @@ re_format_4 = re.compile(
 re_double_start_leak = re.compile(r'\[((\w\^)([^<\[{]*?\w))\]')
 re_double_end_leak = re.compile(r'\[((\w[^<\[{]*?)\s(\w\^))\]')
 
+unbinding_rate = 0.1126 # Rate parameter for the unbinding rule
 
 def check_in(seq):
     """Takes a sequence, and if it isn't None it returns the sequence with the first and last character missing (this will be used to remove
@@ -240,6 +243,18 @@ def convert_lower_to_upper(strand):
     # TODO: Comment and unit test this function
     return re.sub(r'\*', "", strand)
 
+
+def get_binding_rate(t_h_label):
+    for label in domains:
+        if t_h_label == label:
+            if domains[label] < 5:
+                if domains[label] == 4:
+                    return math.log10(5)
+                else:
+                    return math.log10(domains[label])
+    return math.log10(6)
+
+
 class BindingRule(stocal.TransitionRule):
     """Join any two strings into their concatenations"""
     Transition = stocal.MassAction
@@ -264,10 +279,13 @@ class BindingRule(stocal.TransitionRule):
             yield from self.strand_to_strand_binding(rotate(k), l, re_lower_lab, re_upper_lab)
 
     def strand_to_gate_binding(self, k, l, regex_1, regex_2):
-        for gate in re.finditer(re_gate, k):
+        """Simulates binding between a gate and a single upper or lower strand"""
+        for gate in re.finditer(re_gate, k): # Loop through the gates in system k.
+            # The next two for loops attempt to find matching upper and lower toeholds on the gate and strand.
             for match in re.finditer(regex_1, gate.group()):
                 for match_2 in re.finditer(regex_2, l):
-                    if match.group() == match_2.group():
+                    if match.group() == match_2.group(): # If matching toeholds are found
+                        binding_rate = get_binding_rate(match.group())
                         d_s = "[" + match.group() + "^]"
                         i = gate.start()
                         if regex_1 == re_upper_lab:
@@ -277,12 +295,12 @@ class BindingRule(stocal.TransitionRule):
                                 u_s_1 = "<" + k[gate.start(2) + 1:match.start() + i] + ">"
                                 u_s_2 = "<" + k[match.end() + 1 + i:gate.end(2) - 1] + ">"
                                 sys = k[:gate.start()] + l_s_1 + u_s_1 + d_s + l_s_2 + "::" + gate.group(1) + u_s_2 + k[gate.start(3):]
-                                yield self.Transition([k, l], [standardise(sys)], alpha)
+                                yield self.Transition([k, l], [standardise(sys)], binding_rate)
                             elif match.start() > gate.start(4) - i and match.end() < gate.end(4) - i:
                                 u_s_1 = "<" + k[gate.start(4) + 1:match.start() + i] + ">"
                                 u_s_2 = "<" + k[match.end() + i + 1:gate.end(4) - 1] + ">"
                                 sys = k[:gate.end(3)] + check_out(gate.group(5)) + "::" + l_s_1 + u_s_1 + d_s + u_s_2 + l_s_2 + k[gate.end():]
-                                yield self.Transition([k, l], [standardise(sys)], alpha)
+                                yield self.Transition([k, l], [standardise(sys)], binding_rate)
                         else:
                             u_s_1 = "<" + l[1:match_2.start()] + ">"
                             u_s_2 = "<" + l[match_2.end() + 2:len(l) - 1] + ">"
@@ -290,17 +308,18 @@ class BindingRule(stocal.TransitionRule):
                                 l_s_1 = "{" + k[gate.start(1) + 1:match.start() + i] + "}"
                                 l_s_2 = "{" + k[match.end() + i + 2:gate.end(1) - 1] + "}"
                                 sys = k[:gate.start()] + l_s_1 + u_s_1 + d_s + u_s_2 + l_s_2 + ":" + k[gate.end(1):]
-                                yield self.Transition([k, l], [standardise(sys)], alpha)
+                                yield self.Transition([k, l], [standardise(sys)], binding_rate)
                             elif match.start() > gate.start(5) - i and match.end() < gate.end(5) - i:
                                 l_s_1 = "{" + k[gate.start(5) + 1:match.start() + i] + "}"
                                 l_s_2 = "{" + k[match.end() + i + 2:gate.end(5) - 1] + "}"
                                 sys = k[:gate.end(4)] + ":" + l_s_1 + u_s_1 + d_s + u_s_2 + l_s_2 + k[gate.end():] #("SEQ SECOND LOWER", seq)
-                            yield self.Transition([k, l], [standardise(sys)], alpha)
+                            yield self.Transition([k, l], [standardise(sys)], binding_rate)
 
     def strand_to_strand_binding(self, k, l, regex_1, regex_2):
         for match_1 in re.finditer(regex_1, k):
             for match_2 in re.finditer(regex_2, l):
                 if match_1.group() == match_2.group():
+                    binding_rate = get_binding_rate(match_1.group())
                     d_s = "[" + match_2.group() + "^]"
                     part_a = l[:match_2.start()] + re.search(re_close, l[match_2.start():]).group()
                     part_b = k[:match_1.start()] + re.search(re_close, k[match_1.start():]).group()
@@ -310,8 +329,7 @@ class BindingRule(stocal.TransitionRule):
                         sys = part_a + part_b + d_s + part_c + k[match_1.end() + 1:] + part_d + l[match_2.end() + 2:]
                     else:
                         sys = part_b + part_a + d_s + part_d + l[match_2.end() + 1:] + part_c + k[match_1.end() + 2:]
-                    print("final", tidy(sys))
-                    yield self.Transition([k, l], [tidy(sys)], alpha)
+                    yield self.Transition([k, l], [tidy(sys)], binding_rate)
 
 
 class UnbindingRule(stocal.TransitionRule):
@@ -660,11 +678,6 @@ if __name__ == '__main__':
     initial_state = {"<L1 N^ S R1>": 1, "{L'}<L>[N^ S]<R>{R'}": 1}
     initial_state = {"<L1 LA S T^ RA R1>" :1, "{L' L2}<L LB>[S T^]<RB R>{R2 R'}" :1 }
     initial_state = {"{L1 S* R1}" : 1, "{L'}<L>[S]<R>{R'}" : 1}
-    domains = {"A": 4, "D" : 3, "A^": 4}
-    # x = "A B^ C"
-    # re_test = re.compile(fr'{x}')
-    # x = re.sub(r'\^', "\\^", x)
-    # print("test", re.search(re_test, x))
 
     initial_state = {standardise(key): value for key, value in initial_state.items()}
 
