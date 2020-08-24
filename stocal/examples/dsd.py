@@ -458,6 +458,7 @@ class DisplacementRule(stocal.TransitionRule):
 
     def displacement_fwd(self, k, regex_1):
         for match in re.finditer(regex_1, k):
+            displacement_rate = get_migration_rate(match.group(2))
             strand_1 = check_in(match.group(4)) + " " + match.group(2) + " "
             start = k[:match.end(1)-1] + " " + match.group(2) + "]"
             if regex_1 == re_displace_upper:
@@ -475,10 +476,11 @@ class DisplacementRule(stocal.TransitionRule):
                     strand_1 = tidy("{" + strand_1 + check_in(match.group(7)) + "}")
                     strand_2 = tidy(start + " " + check_out(match.group(6)) + "{" + check_out(match.group(3)) + "}" + k[match.end():])
             print("strand_1", strand_1, "strand_2", strand_2)
-            yield self.Transition([k], [strand_1, strand_2], alpha)
+            yield self.Transition([k], [strand_1, strand_2], displacement_rate)
 
     def displacement_rev(self, k, regex_1):
         for match in re.finditer(regex_1, k):
+            displacement_rate = get_migration_rate(match.group(3))
             if regex_1 == re_displace_upper_r:
                 if k[match.start()-2:match.start()] != "::":
                     strand_1 = "<" + check_in(match.group(2)) + " " + match.group(3) + " " + check_in(match.group(4)) + ">"
@@ -495,7 +497,7 @@ class DisplacementRule(stocal.TransitionRule):
                     strand_2 = k[:match.start()] + "{" + check_out(match.group(5)) + "}" + check_out(match.group(2)) + "[" + \
                         match.group(3) + " " + match.group(7)[1:] + k[match.end():]
             print("A:", tidy(strand_1), "B:", tidy(strand_2))
-            yield self.Transition([k], [tidy(strand_1), tidy(strand_2)], alpha)
+            yield self.Transition([k], [tidy(strand_1), tidy(strand_2)], displacement_rate)
 
 
 class StrandLeakageRule(stocal.TransitionRule):
