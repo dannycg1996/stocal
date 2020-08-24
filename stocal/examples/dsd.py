@@ -257,6 +257,14 @@ def get_binding_rate(t_h_label):
     return math.log10(6)
 
 
+def get_migration_rate(domain_label):
+    nuc_length = 20
+    for label in domains:
+        if domain_label == label:
+            nuc_length = domains[label]
+    return 8000/(nuc_length**2)
+
+
 class BindingRule(stocal.TransitionRule):
     """Join any two strings into their concatenations"""
     Transition = stocal.MassAction
@@ -403,6 +411,7 @@ class MigrationRule(stocal.TransitionRule):
 
     def migrate(self, k, regex_1, regex_2):
         for match in re.finditer(regex_1, k):
+            migration_rate = get_migration_rate(match.group(3))
             i = match.start()
             d_s_1 = match.group(1)[:len(match.group(1))-1] + " " + match.group(3) + "]"
             d_s_2 = "[" + match.group()[match.end(6)-i:match.end(5)-i]
@@ -416,10 +425,11 @@ class MigrationRule(stocal.TransitionRule):
                 bracket = ":"
             seq = tidy(k[:match.start()] + d_s_1 + strand_1 + bracket + strand_2 + d_s_2 + k[match.end():])
             print("seq", seq)
-            yield self.Transition([k], [seq], alpha)
+            yield self.Transition([k], [seq], migration_rate)
 
     def migrate_rev(self, k, regex_1, regex_2):
         for match in re.finditer(regex_1, k):
+            migration_rate = get_migration_rate(match.group(2))
             i = match.start()
             d_s_1 = match.group()[:match.start(2)-i] + "]"
             d_s_2 = "[" + match.group(2) + " " + match.group(6)[1:]
@@ -432,8 +442,7 @@ class MigrationRule(stocal.TransitionRule):
                 strand_2 = match.group()[match.start(4)-i: match.start(5)-i] + ">"
                 bracket = ":"
             seq = tidy(k[:match.start()] + d_s_1 + strand_1 + bracket + strand_2 + d_s_2 + k[match.end():])
-            print("seqR", seq)
-            yield self.Transition([k], [seq], alpha)
+            yield self.Transition([k], [seq], migration_rate)
 
 
 class DisplacementRule(stocal.TransitionRule):
