@@ -31,7 +31,7 @@ import stocal
 import re
 import math
 
-domains = {"A": 4, "D" : 3, "A": 4}
+domains = {"A": 4, "D" : 3, "A": 4} # Nucleotide lengths of domains. Should be modified appropriately by the user.
 
 re_double = re.compile(r'(\[[^<{\[\]}>]*?\])')  # Matches on any double strand (includes brackets).
 re_upper = re.compile(r'(<[^<\[{]*?>)')  # Matches on any upper strand (includes the brackets).
@@ -43,7 +43,6 @@ re_gate = re.compile(
 re_double_lab = re.compile(r'(\w)(?=\^)(?=[^<>{}]*])')  # Returns the label of a double toehold regex.
 re_upper_lab = re.compile(r'(\w)(?=\^)(?=[^<>]*>)')  # Returns the labels of upper toeholds.
 re_lower_lab = re.compile(r'(\w)(?=\^\*)(?=[^{}]*})')  # Returns labels of lower toeholds
-
 re_open = re.compile(r'[<\[{]')  # Matches on open brackets [, { and <
 re_close = re.compile(r'([>\]}])')  # Matches on close brackets ], } and >
 re_empty = re.compile(r'(<(?:\s)*>)|({(?:\s)*})|(\[(?:\s)*])')  # Matches on empty brackets like <>, {} and [ ].
@@ -98,9 +97,9 @@ re_format_4 = re.compile(
 re_double_start_leak = re.compile(r'\[((\w\^)([^<\[{]*?\w))\]')
 re_double_end_leak = re.compile(r'\[((\w[^<\[{]*?)\s(\w\^))\]')
 
-unbinding_rate = 0.1126 # Rate parameter for the unbinding rule
-covering_rate = 699 # Rate parameter for the covering rule
-leak_rate = 0.001 #Rate parameter for the two leakage rules
+unbinding_rate = 0.1126  # Rate parameter for the unbinding rule
+covering_rate = 699  # Rate parameter for the covering rule
+leak_rate = 0.001  # Rate parameter for the two leakage rules
 
 
 def check_in(seq):
@@ -220,33 +219,39 @@ def standardise(sys):
 
 
 def rotate(strand):
-    # TODO: Comment and unit test this function
-    if re.search(re_gate, strand) is None:
-        domains = check_in(strand).split(" ")[::-1]
-        new_strand = ""
-        if re.search(re_upper, strand) is not None:
+    """Takes a single upper or lower strand, and rotates it to be an upper or lower strand, respectively.
+    Rotation is performed as defined in Lakin's DSD calculus"""
+    if re.search(re_gate, strand) is None:  # Check that the input is not a gate (this program does not rotate gates)
+        domains = check_in(strand).split(" ")[::-1]  # Remove brackets and reverse the domain sequence.
+        new_strand = ""  # Define empty strand.
+        if re.search(re_upper, strand) is not None:  # if upper strand, loop through reversed input and build lower strand.
             for domain in domains:
                 new_strand = new_strand + " " + domain
             return "{" + new_strand[1:] + "}"
-        elif re.search(re_lower, strand) is not None:
+        elif re.search(re_lower, strand) is not None:  # if lower strand, loop through reversed input and build upper strand.
             for domain in domains:
                 new_strand = new_strand + " " + domain
             return "<" + new_strand[1:] + ">"
     else:
-        print("Erroneous input to rotate")
+        print("This function cannot rotate gates")
         return ""
 
 
 def convert_upper_to_lower(strand):
-    # TODO: Comment and unit test this function
+    """Take an upper strand sequence, and convert it to be a lower strand sequence.
+    This essentially consists of swapping domain names A to be domain name A*"""
     return re.sub(r'(?<=\S)\s', "* ", strand) + "*"
 
+
 def convert_lower_to_upper(strand):
-    # TODO: Comment and unit test this function
+    """Take a lower strand sequence, and convert it to be an upper strand sequence.
+    This essentially consists of swapping domain names A* to be domain name A"""
     return re.sub(r'\*', "", strand)
 
 
 def get_binding_rate(t_h_label):
+    """Calculate the binding rate for a given toehold. Calculates it based on nucleotide length.
+    If nucleotide length is unknown, then the toehold length of 7 is used, which is an average toehold length."""
     for label in domains:
         if t_h_label == label:
             if domains[label] < 5:
@@ -258,6 +263,9 @@ def get_binding_rate(t_h_label):
 
 
 def get_migration_rate(domain_label):
+    """Calculate the migration/displacement rate for a given domain. Calculates it based on nucleotide length.
+    If nucleotide length is unknown, then the domain length of 20 is used, which is the shortest length a
+    long domain can be."""
     nuc_length = 20
     for label in domains:
         if domain_label == label:
