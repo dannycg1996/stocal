@@ -114,7 +114,7 @@ class TestCoveringRule(TestTransitionRule):
     Rule = CoveringRule
 
     def test_lakin_r_c_example_l_to_r(self):
-        # r_c_1 tests that the basic RC  example from the Lakin paper yields the correct result.
+        # Tests that the basic RC  example from the Lakin paper yields the correct result.
         r_c_1 = list(list(set(self.Rule.novel_reactions(self.Rule(), "{L'}<L>[S]<N^ R>{N^* R'}")))[0].products.keys())[0]
         self.assertEqual(r_c_1, "{L'}<L>[S N^]<R>{R'}")
 
@@ -633,13 +633,11 @@ class TestToeholdLeakageRule(unittest.TestCase):
         exp_res_8 = {"{L' N^* S* R'}", "{L1}<L N^>[S]<R>{R1}"}
         self.assertEqual(set(), set.difference(l_t_8, exp_res_8))
 
-
     def test_extended_lakin_l_t_example_with_toehold_at_start(self):
         # Test that the basic LT example from the Lakin paper can be replicated with the Leakage Rule.
         l_t_9 = set(list(set(self.Rule.novel_reactions(self.Rule(), "<L1 N^ S R1>", "{L'}<L>[N^ S]<R>{R'}"))))
         exp_res_9 = {"<L N^ S R>", "{L' N^*}<L1>[S]<R1>{R'}"}
         self.assertEqual(set(), l_t_9)
-
 
     def test_lakin_l_s_example_does_not_yield_any_results_from_the_l_t_rule(self):
         # Test that the LT rule is not applied to the basic LS example from the Lakin paper.
@@ -662,10 +660,5 @@ class TestToeholdLeakageRule(unittest.TestCase):
         l_t_4 = set(list(set(self.Rule.novel_reactions(self.Rule(), "{L1 A B^ C^ R1}", "{L'}<L>[A B C^]<R>{R'}"))))
         self.assertEqual(set(), l_t_4)
 
-
-#<L1 S R1> |
-# {L’}<L>[S N^]<R>{R’}
-# <L S N^ R> |
-# {L’}<L1>[S]<R1>{N^* R’}
 if __name__ == '__main__':
     unittest.main()
