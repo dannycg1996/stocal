@@ -100,6 +100,8 @@ re_double_start_leak = re.compile(r'\[((\w\^)([^<\[{]*?\w))\]')
 re_double_end_leak = re.compile(r'\[((\w[^<\[{]*?)\s(\w\^))\]')
 
 unbinding_rate = 0.1126 # Rate parameter for the unbinding rule
+covering_rate = 699 # Rate parameter for the covering rule
+
 
 def check_in(seq):
     """Takes a sequence, and if it isn't None it returns the sequence with the first and last character missing (this will be used to remove
@@ -360,8 +362,7 @@ class UnbindingRule(stocal.TransitionRule):
                         part_a = part_a + kl[gate.end():]
                     else:
                         part_b = part_b + kl[gate.end():]
-                print("FINAL A:", standardise(part_a), "FINAL B:", standardise(part_b))
-                yield self.Transition([kl], [standardise(part_a), standardise(part_b)], alpha)
+                yield self.Transition([kl], [standardise(part_a), standardise(part_b)], unbinding_rate)
 
 
 class CoveringRule(stocal.TransitionRule):
@@ -386,7 +387,7 @@ class CoveringRule(stocal.TransitionRule):
             updated_sys = k[:match.start()] + "{" + check_out(match.group(1)) + "}<" + check_out(match.group(3)) + ">[" + \
                 match.group(2) + "^ " + k[match.end()+1:]
             print("updated", tidy(updated_sys))
-            yield self.Transition([k], [tidy(updated_sys)], alpha)
+            yield self.Transition([k], [tidy(updated_sys)], covering_rate)
 
 
 class MigrationRule(stocal.TransitionRule):
