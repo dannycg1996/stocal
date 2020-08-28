@@ -30,10 +30,11 @@ amount of time.
 import stocal
 import re
 import math
+from stocal.structures import multiset
 
-domains = {"A": 4, "D" : 3, "A": 4} # Nucleotide lengths of domains. Should be modified appropriately by the user.
+domains = {"Z": 4} # Nucleotide lengths of domains. Should be modified appropriately by the user.
 
-re_double = re.compile(r'(\[[^<{\[\]}>]*?\])')  # Matches on any double strand (includes brackets).
+re_double = re.compile(r'(\[[^<{\[\]}>]*?])')  # Matches on any double strand (includes brackets).
 re_upper = re.compile(r'(<[^<\[{]*?>)')  # Matches on any upper strand (includes the brackets).
 re_lower = re.compile(r'({[^<\[{]*?\})')  # Matches on any lower strand (includes the brackets).
 re_short_double_th = re.compile(r'(?:\[\W*?(\w)(?:\^\W*?\]))')  # Matches on double toeholds of the form [A^] not [A^ B]
@@ -97,9 +98,9 @@ re_format_4 = re.compile(
 re_double_start_leak = re.compile(r'\[((\w\^)([^<\[{]*?\w))\]')
 re_double_end_leak = re.compile(r'\[((\w[^<\[{]*?)\s(\w\^))\]')
 
-unbinding_rate = 0.1126  # Rate parameter for the unbinding rule
+unbinding_rate =  0.1126  # Rate parameter for the unbinding rule
 covering_rate = 699  # Rate parameter for the covering rule
-leak_rate = 0.001  # Rate parameter for the two leakage rules
+leak_rate = 0.000003  # Rate parameter for the two leakage rules
 
 
 def check_in(seq):
@@ -233,7 +234,6 @@ def rotate(strand):
                 new_strand = new_strand + " " + domain
             return "<" + new_strand[1:] + ">"
     else:
-        print("This function cannot rotate gates")
         return ""
 
 
@@ -251,15 +251,16 @@ def convert_lower_to_upper(strand):
 
 def get_binding_rate(t_h_label):
     """Calculate the binding rate for a given toehold. Calculates it based on nucleotide length.
-    If nucleotide length is unknown, then the toehold length of 7 is used, which is an average toehold length."""
+    # If nucleotide length is unknown, then the toehold length of 7 is used, which is an average toehold length."""
     for label in domains:
         if t_h_label == label:
             if domains[label] < 5:
                 if domains[label] == 4:
-                    return math.log10(5)
+                    return math.log10(5)/2500
                 else:
-                    return math.log10(domains[label])
-    return math.log10(6)
+                    return math.log10(domains[label])/2500
+    return math.log10(6)/2500
+    # return 0.0003
 
 
 def get_migration_rate(domain_label):
@@ -281,6 +282,7 @@ class BindingRule(stocal.TransitionRule):
         # TODO: Test with rotated strands.
         gate_k = re.search(re_gate, k)
         gate_l = re.search(re_gate, l)
+        # Call the appropriate function depending if k and l are both strands, or a gate and a strand.
         if (gate_k is None and gate_l is not None) or (gate_l is None and gate_k is not None):
             yield from self.strand_to_gate_binding(k, l, re_upper_lab, re_lower_lab)
             yield from self.strand_to_gate_binding(l, k, re_upper_lab, re_lower_lab)
@@ -298,7 +300,7 @@ class BindingRule(stocal.TransitionRule):
 
     def strand_to_gate_binding(self, k, l, regex_1, regex_2):
         """Simulates binding between a gate and a single upper or lower strand"""
-        for gate in re.finditer(re_gate, k): # Loop through the gates in system k.
+        for gate in re.finditer(re_gate, k):   # Loop through the gates in system k.
             # The next two for loops attempt to find matching upper and lower toeholds on the gate and strand.
             for match in re.finditer(regex_1, gate.group()):
                 for match_2 in re.finditer(regex_2, l):
@@ -313,11 +315,13 @@ class BindingRule(stocal.TransitionRule):
                                 u_s_1 = "<" + k[gate.start(2) + 1:match.start() + i] + ">"
                                 u_s_2 = "<" + k[match.end() + 1 + i:gate.end(2) - 1] + ">"
                                 sys = k[:gate.start()] + l_s_1 + u_s_1 + d_s + l_s_2 + "::" + gate.group(1) + u_s_2 + k[gate.start(3):]
+                                # print("bind1", standardise(sys))
                                 yield self.Transition([k, l], [standardise(sys)], binding_rate)
                             elif match.start() > gate.start(4) - i and match.end() < gate.end(4) - i:
                                 u_s_1 = "<" + k[gate.start(4) + 1:match.start() + i] + ">"
                                 u_s_2 = "<" + k[match.end() + i + 1:gate.end(4) - 1] + ">"
                                 sys = k[:gate.end(3)] + check_out(gate.group(5)) + "::" + l_s_1 + u_s_1 + d_s + u_s_2 + l_s_2 + k[gate.end():]
+                                # print("bind2", standardise(sys))
                                 yield self.Transition([k, l], [standardise(sys)], binding_rate)
                         else:
                             u_s_1 = "<" + l[1:match_2.start()] + ">"
@@ -325,15 +329,19 @@ class BindingRule(stocal.TransitionRule):
                             if match.start() > gate.start(1) - i and match.end() < gate.end(1) - i:
                                 l_s_1 = "{" + k[gate.start(1) + 1:match.start() + i] + "}"
                                 l_s_2 = "{" + k[match.end() + i + 2:gate.end(1) - 1] + "}"
-                                sys = k[:gate.start()] + l_s_1 + u_s_1 + d_s + u_s_2 + l_s_2 + ":" + k[gate.end(1):]
+                                sys = k[:gate.start()] + l_s_1 + u_s_1 + d_s + u_s_2 + l_s_2 + ":" + check_out(gate.group(2)) + k[gate.start(3):]
+                                # print("bind3", standardise(sys))
                                 yield self.Transition([k, l], [standardise(sys)], binding_rate)
                             elif match.start() > gate.start(5) - i and match.end() < gate.end(5) - i:
                                 l_s_1 = "{" + k[gate.start(5) + 1:match.start() + i] + "}"
                                 l_s_2 = "{" + k[match.end() + i + 2:gate.end(5) - 1] + "}"
-                                sys = k[:gate.end(4)] + ":" + l_s_1 + u_s_1 + d_s + u_s_2 + l_s_2 + k[gate.end():] #("SEQ SECOND LOWER", seq)
-                            yield self.Transition([k, l], [standardise(sys)], binding_rate)
+                                sys = k[:gate.end(3)] + check_out(gate.group(4)) + ":" + l_s_1 + u_s_1 + d_s + u_s_2 + l_s_2 + k[gate.end():]
+                                # print("bind4", standardise(sys))
+                                yield self.Transition([k, l], [standardise(sys)], binding_rate)
 
     def strand_to_strand_binding(self, k, l, regex_1, regex_2):
+        """Simulates an upper and lower strand annealing together"""
+        # The next two loops are to loop through matching toeholds found on the two strands.
         for match_1 in re.finditer(regex_1, k):
             for match_2 in re.finditer(regex_2, l):
                 if match_1.group() == match_2.group():
@@ -347,6 +355,7 @@ class BindingRule(stocal.TransitionRule):
                         sys = part_a + part_b + d_s + part_c + k[match_1.end() + 1:] + part_d + l[match_2.end() + 2:]
                     else:
                         sys = part_b + part_a + d_s + part_d + l[match_2.end() + 1:] + part_c + k[match_1.end() + 2:]
+                    # print("bind5", standardise(sys))
                     yield self.Transition([k, l], [tidy(sys)], binding_rate)
 
 
@@ -378,6 +387,7 @@ class UnbindingRule(stocal.TransitionRule):
                         part_a = part_a + kl[gate.end():]
                     else:
                         part_b = part_b + kl[gate.end():]
+                # print("unbind", standardise(part_a),standardise(part_b))
                 yield self.Transition([kl], [standardise(part_a), standardise(part_b)], unbinding_rate)
 
 
@@ -397,12 +407,12 @@ class CoveringRule(stocal.TransitionRule):
             else:  # If matching on {}::{}?<> then update system.
                 updated_sys = k[:match.start()-2] + " " + match.group(6) + "^]{" + check_out(match.group(7)) + "}::" + \
                     check_out(match.group(8)) + "<" + check_out(match.group(10)) + ">" + k[match.end():]
-            print("updated gate", tidy(updated_sys))
+            # print("covered gate", tidy(updated_sys))
             yield self.Transition([k], [tidy(updated_sys)], covering_rate)
         for match in re.finditer(re_pre_cover, k):  # Match on {}<> sequences where Covering can be applied.
             updated_sys = k[:match.start()] + "{" + check_out(match.group(1)) + "}<" + check_out(match.group(3)) + ">[" + \
                 match.group(2) + "^ " + k[match.end()+1:]
-            print("updated", tidy(updated_sys))
+            # print("covered gate2", tidy(updated_sys))
             yield self.Transition([k], [tidy(updated_sys)], covering_rate)
 
 
@@ -432,7 +442,7 @@ class MigrationRule(stocal.TransitionRule):
                 strand_2 = "<" + check_in(match.group(4)) + " " + match.group(3) + ">"
                 bracket = ":"
             seq = tidy(k[:match.start()] + d_s_1 + strand_1 + bracket + strand_2 + d_s_2 + k[match.end():])
-            print("seq", seq)
+            # print("seq", seq)
             yield self.Transition([k], [seq], migration_rate)
 
     def migrate_rev(self, k, regex_1, regex_2):
@@ -450,6 +460,7 @@ class MigrationRule(stocal.TransitionRule):
                 strand_2 = match.group()[match.start(4)-i: match.start(5)-i] + ">"
                 bracket = ":"
             seq = tidy(k[:match.start()] + d_s_1 + strand_1 + bracket + strand_2 + d_s_2 + k[match.end():])
+            # print("seqR", seq)
             yield self.Transition([k], [seq], migration_rate)
 
 
@@ -483,7 +494,7 @@ class DisplacementRule(stocal.TransitionRule):
                 else:
                     strand_1 = tidy("{" + strand_1 + check_in(match.group(7)) + "}")
                     strand_2 = tidy(start + " " + check_out(match.group(6)) + "{" + check_out(match.group(3)) + "}" + k[match.end():])
-            print("strand_1", strand_1, "strand_2", strand_2)
+            # print("strand_1", strand_1, "strand_2", strand_2)
             yield self.Transition([k], [strand_1, strand_2], displacement_rate)
 
     def displacement_rev(self, k, regex_1):
@@ -504,7 +515,7 @@ class DisplacementRule(stocal.TransitionRule):
                     strand_1 = "{" + check_in(match.group(1)) + " " + match.group(3) + " " + check_in(match.group(4)) + "}"
                     strand_2 = k[:match.start()] + "{" + check_out(match.group(5)) + "}" + check_out(match.group(2)) + "[" + \
                         match.group(3) + " " + match.group(7)[1:] + k[match.end():]
-            print("A:", tidy(strand_1), "B:", tidy(strand_2))
+            # print("A:", tidy(strand_1), "B:", tidy(strand_2))
             yield self.Transition([k], [tidy(strand_1), tidy(strand_2)], displacement_rate)
 
 
@@ -523,11 +534,9 @@ class StrandLeakageRule(stocal.TransitionRule):
         leaked_u_s = "<" + check_in(gate.group(2)) + " " + check_in(gate.group(3)) + " " + check_in(gate.group(4)) + ">"
         re_strand = re.sub(r'\^', "\\^", check_in(gate.group(3)))
         re_strand_2 = re_strand + "$|" + re_strand + " "
-        print("mod l", mod_l)
         for match in re.finditer(fr'{re_strand_2}', mod_l):  # Yield suitable (upper) leaks.
-            new_sys = k[:gate.start(2)] + "<" + mod_l[:match.start()] + ">" + gate.group(3) + "<" + \
-                      mod_l[match.end():] + ">" + k[gate.end(4):]
-            print("route 1")
+            new_sys = k[:gate.start()] + check_out(gate.group(1)) + "<" + mod_l[:match.start()] + ">" + gate.group(3) + "<" + \
+                      mod_l[match.end():] + ">" + check_out(gate.group(5)) + k[gate.end():]
             yield self.Transition([k, l], [tidy(new_sys), tidy(leaked_u_s)], leak_rate)
 
     def lower_strand_leakage(self, k, l, mod_l, gate):
@@ -538,7 +547,7 @@ class StrandLeakageRule(stocal.TransitionRule):
         for match in re.finditer(fr'{re_strand}', mod_l): # Yield suitable (lower) leaks.
             new_sys = k[:gate.start()] + "{" + mod_l[:match.start()] + "}" + k[gate.start(2):gate.end(4)] +\
               "{" + mod_l[match.end():] + "}" + k[gate.end():]
-            print("route 2")
+            # print("leak y")
             yield self.Transition([k, l], [tidy(new_sys), tidy(leaked_l_s)], leak_rate)
 
     def strand_leak(self, k, l):
@@ -548,7 +557,6 @@ class StrandLeakageRule(stocal.TransitionRule):
                 upper_gate_join_2 = k[gate.end():gate.end()+2]  # Used to check if current gate joins next gate via an upper strand.
                 lower_gate_join_1 = k[gate.start() - 2:gate.start() - 1]  # Used to check if current gate joins last gate via a lower strand.
                 lower_gate_join_2 = k[gate.end() + 1:gate.end() + 2]  # Used to check if current gate joins next gate via a lower strand.
-                print("l", l)
                 if re.search(re_upper, l) is not None:  # If the strand initiating the leak is an upper strand:
                     if upper_gate_join_1 != "::" and upper_gate_join_2 != "::":  # Check gate isn't joined to others by upper strand.
                         yield from self.upper_strand_leakage(k, l, check_in(l), gate)
@@ -582,6 +590,7 @@ class ToeholdLeakageRule(stocal.TransitionRule):
                                  " " + check_in(gate.group(5)) + "}"
                 new_sys = k[:gate.start()] + "{" + mod_l[:match.start()] + "}" + gate.group(2) + "[" + end_leak.group(2) + "]<" + \
                         end_leak.group(3) + " " + check_in(gate.group(4)) + ">{" + mod_l[match.end():] + "}" + k[gate.end():]
+                # print("leak1")
                 yield self.Transition([k, l], [tidy(leaked_l_s), tidy(new_sys)], leak_rate)
 
     def upper_toehold_leakage_at_end(self, k, l, end_leak, mod_l, gate):
@@ -593,6 +602,7 @@ class ToeholdLeakageRule(stocal.TransitionRule):
                 leaked_u_s = "<" + check_in(gate.group(2)) + " " + end_leak.group(1) + " " + check_in(gate.group(4)) + ">"
                 new_sys = k[:gate.start(2)] + "<" + mod_l[:match.start()] + ">[" + end_leak.group(2) + "]<" + \
                     mod_l[match.end():] + ">{" + end_leak.group(3) + "* " + check_in(gate.group(5)) + "}" + k[gate.end():]
+                # print("leak2")
                 yield self.Transition([k, l], [tidy(leaked_u_s), tidy(new_sys)], leak_rate)
 
     def lower_toehold_leakage_at_start(self, k, l, start_leak, mod_l, gate):
@@ -606,19 +616,19 @@ class ToeholdLeakageRule(stocal.TransitionRule):
                 new_sys = k[:gate.start()] + "{" + mod_l[:match.start()] + "}<" + check_in(gate.group(2)) + " " + \
                           start_leak.group(2) + ">[" + start_leak.group(3) + "]<" + check_in(gate.group(4)) + ">" + \
                           "{" + mod_l[match.end():] + "}" + k[gate.end():]
+                # print("leak3")
                 yield self.Transition([k, l], [tidy(leaked_l_s), tidy(new_sys)], leak_rate)
 
     def upper_toehold_leakage_at_start(self, k, l, start_leak, mod_l, gate):
         re_check_not_l_s = re.sub(r'\^', "\\^", start_leak.group(2)) + "$"
         re_start_leak = re.sub(r'\^', "\\^", start_leak.group(3))
         re_start_leak_2 = re_start_leak + "$|" + re_start_leak + " "
-        print("start", re_start_leak)
         for match in re.finditer(re_start_leak_2, mod_l):
-            print("match found 123")
             if re.search(re_check_not_l_s, mod_l[:match.start()]) is None:  # TODO: Check this check works
                 leaked_u_s = "<" + check_in(gate.group(2)) + " " + start_leak.group(1) + " " + check_in(gate.group(4)) + ">"
                 new_sys = k[:gate.start()] + "{" + check_in(gate.group(1)) + " " + start_leak.group(2) + "*}<" +\
                           mod_l[:match.start()] + ">[" + start_leak.group(3) + "]<" + mod_l[match.end():] + ">" + k[gate.end(4):]
+                # print("leak4")
                 yield self.Transition([k, l], [tidy(leaked_u_s), tidy(new_sys)], leak_rate)
 
     def toehold_leak(self, k, l):
@@ -652,52 +662,106 @@ class ToeholdLeakageRule(stocal.TransitionRule):
 
 
 process = stocal.Process(
-    rules=[StrandLeakageRule()]
+    rules=[MigrationRule(), BindingRule(), UnbindingRule(), DisplacementRule()] #StrandLeakageRule(), ToeholdLeakageRule() CoveringRule()
 )
+#
+def every(trajectory, dt):
+    tmax = trajectory.tmax
+    trajectory.tmax = trajectory.time
+    while trajectory.time < tmax:
+        transitions = multiset()
+        if trajectory.steps and trajectory.step >= trajectory.steps:
+            break
+        trajectory.tmax += dt
+        for trans in trajectory:
+            transitions += {trans:1}
+        yield transitions
+#
+#
+def sample(trajectory, species, dt=0):
+#     """Sample species along trajectory every dt time units
+#
+#     species is a list of species labels that should be sampled.
+#
+#     Returns a tuple of two elements, the first is a list of all firing
+#     times, the second a dictionary that holds for each species the
+#     list of copy numbers at each corresponding time point. If dt is
+#     given, it specifies the interval at which the trajectory is sampled.
+#     """
+    times = [trajectory.time]
+    numbers = {s:[trajectory.state[s]] for s in species}
+    it = every(trajectory, dt) if dt else iter(trajectory)
+    for _ in it:
+        times.append(trajectory.time)
+        for s in species:
+            numbers[s].append(trajectory.state[s])
+    return times, numbers
+#
+#
+class Trajectory(object):
+    def __init__(self):
+        self.records = []
+        self.null = 0
+
+    def append(self, **values):
+        self.records.append(values)
+
+    def __iter__(self):
+        return iter(self.records)
+
+    def __getattr__(self, value):
+        from collections import Mapping, Sequence
+        proto = self.records[0][value]
+
+        if isinstance(proto, Mapping):
+            keys = set().union(*(rec[value] for rec in self.records))
+            return {
+                key: [rec[value].get(key, self.null) for rec in self.records]
+                for key in keys
+            }
+
+        elif isinstance(proto, Sequence):
+            return [
+                [rec[value][i] for rec in self.records]
+                for i in proto
+            ]
+
+        else:
+            return [rec[value] for rec in self.records]
 
 
 if __name__ == '__main__':
-    # initial_state = {"<Z Y C>[B]::<E F G>::[K]": 60}
-    initial_state = {"<L1 N^ S R1>": 60, "{L' N^*}<L>[S R2]<R>{R'}": 60}
-    initial_state = {"{N^*}<R N^>[S]<A B C>{D E}" : 60}
-    #initial_state = {"{L'}<L>[S1]<S R2>:<L1>[S S2]<R>{R'}":60}
-    #initial_state = {"{L'}<L>[S1]{S R2}::{L1}[S S2]<R>{R'}":60}
-    initial_state = {"{L'}<L>[S1 S]<R2>:<L1 S>[S2]<R>{R'}": 60}
-    initial_state = {"{L'}<L>[S1]<S R>:<L2>[S]<R2>{R'}" : 60}
-    initial_state = {"{L'}<L>[S]<L2>:<R S>[S1]<R2>{R'}" : 60}
-    initial_state = {"{L'}<L>[S]{L2}::{R S}[S1]<R2>{R'}" : 60}
-    initial_state = {"<L1 S R1>":1, "{L'}<L>[S]<R>{R'}":1}
+    import matplotlib.pyplot as plt
 
-    #initial_state = {"{L'}<L>[S1]{S R}::{L2}[S]<R2>{R'}" : 60}
-    #initial_state = {"{A}<B>[C^]<D>:{E F^* G}<H>[I]<J>{K}": 60, "<Z F^ X>": 60}
-    # initial_state = {"{A}<B>[C^]{E}::{K}<D G H^ I L>[M^]<O>{Z N^* G}" :600, "<F N^ J>":600}
-    # initial_state = {"{L'}<L>[S1]<S R2 R3>:<L1>[S R2 S2]<R>{R'}" : 6000000}
-    # initial_state = {"{L'}<L>[S1]<S R>:<L2>[S]<R2>{R'}" : 60}
-    # initial_state = {"{L'}<L>[S]<N^ R>{N^* R'}" : 60}
-    initial_state = {"<t^ x y>" : 1, "{t^*}[x]:[y u^]" : 1}
-    initial_state = {"[t^]<x y>:[x]:[y u^]": 1}
-    initial_state = {"[t^ x]<y>:[y u^]": 1}
-    #initial_state = {"{L'}<L>[S1]<S R2>:<L1>[S S2]<R>{R'}":1}
-    #initial_state = {"{L'}<L>[S1]{S R2}::{L1}[S S2]<R>{R'}":1}
-    initial_state = {"[C D]<A>:{L'}<L>[S]<N^ R>{N^* R'}::[A B]":1}
-    #{L'}<L>[S]<N^ R>:{N^* R'}[A B]
-    #{L'}<L>[S]<N^ R>{N^* R'}
-    initial_state ={"{L'}<L>[S]<N^ R>:{N^* R'}[A B]": 1}
-    initial_state ={"{Z A^*}<Y A^>[B]{C}::{D}<E^ D>[G]": 1}
-    initial_state = {"[A]{B^*}::{L}<B^>[S]": 1}
-    initial_state = {"{L'}<L>[S1]<S>:<L1>[S S2]<R>{R'}": 1}
-    initial_state = {"[t^]{x y}::[x]:[y u^]": 1}
-    initial_state = {"[t^]{x y}::{Z}[x]<r>:[y u^]": 1}
-    initial_state = {"<A B^ C>": 1, "[A B^ C]": 1}
-    initial_state = {"<L1 S T R1>": 1, "{L'}<L>[T S]<R>{R'}": 1}
-    initial_state = {"{L1 S R1}": 1, "{L'}<L>[S]<R>{R'}": 1}
-    initial_state = {"<L1 S R1>": 1, "{L'}<L>[S N^]<R>{R'}": 1}
-    initial_state = {"<L1 N^ S R1>": 1, "{L'}<L>[N^ S]<R>{R'}": 1}
-    initial_state = {"<L1 LA S T^ RA R1>" :1, "{L' L2}<L LB>[S T^]<RB R>{R2 R'}" :1 }
-    initial_state = {"{L1 S* R1}" : 1, "{L'}<L>[S]<R>{R'}" : 1}
-
+    initial_state = {"<t^ b>":30, "{t^*}[x t^]:[b t^]:[a t^]:[a]":1000, "[x]:[t^ b]:[t^ b]:[t^ a]{t^*}":500,
+                     "<t^ x>":500, "<t^ a>":500, "<b t^>":500}
+    species = ["<t^ b>", "{t^*}[x t^]:[b t^]:[a t^]:[a]", "[x]:[t^ b]:[t^ b]:[t^ a]{t^*}", "<t^ x>", "<t^ a>", "<b t^>", "<a>"]
     initial_state = {standardise(key): value for key, value in initial_state.items()}
 
-    traj = process.sample(initial_state, tmax=1000000000.)
-    for _ in traj:
-        print(traj.time, traj.state)
+    time,species = sample(
+        process.trajectory(initial_state, tmax=125),
+        species,
+        dt=1.
+    )
+
+    for name in species:
+        plt.plot(time, species[name], label=str(name))
+    plt.legend(loc='upper left')
+    plt.show()
+
+#
+# if __name__ == '__main__':
+#
+#     # initial_state = {"{t^*}[x t^]:[b t^]:[a t^]:[a]" : 500, "<t^ x>" : 500, "<t^ b>":30, "<t^ a>":500}
+#     initial_state = {"<t^ b>":30, "{t^*}[x t^]:[b t^]:[a t^]:[a]":400, "[x]:[t^ b]:[t^ b]:[t^ a]{t^*}":400,
+#                      "<t^ x>":400, "<t^ a>":400, "<b t^>":400}
+#     # initial_state = {"[t^ x]:[t^ b]:{t^*}[a t^]:[a]":1000, "<t^ a>":1000}
+#     # initial_state = {"<t^ b>":30, "{t^*}[x t^]:[b t^]:[a t^]:[a]":3000,
+#     #                  "<t^ x>":3000}
+#     # initial_state =  {"<t^ b>":30, "[t^ x]:{t^*}[b t^]:[a t^]:[a]":3000}
+#     # initial_state = {"[t^ x]:{t^*}[b t^]:[a t^]:[a]":1000, "<t^ b>":1000 }
+#     initial_state = {standardise(key): value for key, value in initial_state.items()}
+#
+#     traj = process.sample(initial_state, tmax=1000.)
+#     for _ in traj:
+#         print(traj.time, traj.state)
